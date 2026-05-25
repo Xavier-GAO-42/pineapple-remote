@@ -1,0 +1,4 @@
+interface:
+  display_name: "菠萝 Pineapple"
+  short_description: "用微信文件传输助手远程监控与干预正在运行的 AI agent"
+  default_prompt: "启用菠萝，初始化或连接微信文件传输助手控制通道。"

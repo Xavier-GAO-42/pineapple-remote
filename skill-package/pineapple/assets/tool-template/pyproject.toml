@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wechat-agent-bridge"
+version = "0.2.0"
+description = "A lightweight local WeChat File Transfer Assistant control bridge for AI agents."
+authors = [{name = "GALAXY x Codex"}]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+web = ["playwright>=1.49"]
+test = ["pytest>=7"]
+
+[project.scripts]
+wechat-tick = "wechat_agent.cli:main"
+pineapple-config = "wechat_agent.control:main"
+
+[tool.setuptools.packages.find]
+include = ["wechat_agent*"]
