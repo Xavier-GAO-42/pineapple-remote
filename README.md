@@ -1,98 +1,87 @@
-# 菠萝 Pineapple Skill
+# 菠萝 Pineapple
 
 > 把微信文件传输助手变成本地 AI agent 的随身遥控器。
 
-**菠萝 Pineapple** 是一个超轻量 AI agent skill，用微信“文件传输助手”远程监控和控制你的本地 agent。
+电脑上 agent 在跑任务，你可以直接用手机微信发消息：
 
-当你的 agent 正在电脑上跑长任务时，你不需要一直守在电脑前。只要电脑上完成一次官方网页扫码登录，并让任务期间的页面保持打开，你就可以直接用手机给“文件传输助手”发消息：
+| 发什么 | 效果 |
+|--------|------|
+| 🍍? | 查询当前进度 |
+| 🍍：xxx | 给 agent 追加要求或干预 |
 
-```text
-🍍?
-```
+任务完成后，结果自动推送到文件传输助手：
 
-查询 agent 当前状态。
-
-```text
-🍍：xxx
-```
-
-给 agent 发送新请求或干预当前任务。
-
-任务完成后，agent 会自动把结果发回文件传输助手。
-
-```text
+`
 🍍完成：检查完毕，修改位置与结果摘要已整理完成。
-```
+`
 
-菠萝不试图成为“微信机器人”。它更像一个安静的小控制面板：只有一个 agent 主接口、一个官方网页会话、少量本地状态文件；没有服务端、没有常驻守护进程，也不读取你的其他聊天。
+不需要守在电脑前，不需要服务端，不读取你的其他聊天。
 
 ---
 
-## 只用 CLI 安装与使用
+## 快速安装（0基础）
 
-这一节面向不写代码、只拥有 **Codex CLI** 或 **Claude Code CLI** 的用户。你不需要手动运行 `pip install`，也不需要理解 `wechat_tick`：把安装包交给 agent，skill 会在第一次启用时解释将写入什么，并在你确认后自动安装网页依赖。
+**前提**：电脑已有 Python 3.10+（能运行 py -V 或 python -V 即可）。
 
-目前唯一前提：电脑已有 `Python 3.10+`。Windows 上如果已经能运行 `py -V` 或 `python -V`，通常就满足要求。
+### 第一步：下载安装包
 
-### Codex CLI
+| 你用的 CLI | 下载文件 |
+|-----------|---------|
+| Codex CLI | [pineapple-codex-skill-0.2.0.zip](dist/pineapple-codex-skill-0.2.0.zip) |
+| Claude Code CLI | [pineapple-claude-plugin-0.2.0.zip](dist/pineapple-claude-plugin-0.2.0.zip) |
 
-1. 下载 `pineapple-codex-skill-0.2.0.zip`，将它放到一个你找得到的目录。
-2. 在 Codex CLI 中输入下面这句话，并把路径换成压缩包实际位置：
+### 第二步：让 agent 安装它
 
-```text
-请把 D:\Downloads\pineapple-codex-skill-0.2.0.zip 安装为我的 pineapple skill。安装完成后告诉我如何启用，不要启动微信页面。
-```
+**Codex CLI** — 打开 Codex，复制下面这句（替换实际路径）：
 
-3. 重新打开一个 Codex CLI session，输入：
+`
+请把 D:\Downloads\pineapple-codex-skill-0.2.0.zip 安装为我的 pineapple skill。
+安装完成后告诉我如何启用，不要启动微信页面。
+`
 
-```text
-启用菠萝。请先初始化；需要写入本地工具或安装依赖时，先把计划告诉我，等我确认。
-```
+**Claude Code CLI** — 打开 Claude Code，粘贴：
 
-4. Codex 会先只读查找可复用工具，再展示计划。你确认后，它会自动创建用户级本地工具并安装 `playwright` 依赖。
-5. 准备让当前任务接受微信控制时，输入：
+`
+请把 D:\Downloads\pineapple-claude-plugin-0.2.0.zip 解压到 D:\Tools\pineapple-claude-plugin，
+告诉我启动这个本地 plugin 的命令。不要启动微信页面。
+`
 
-```text
-本次任务启用菠萝控制，打开文件传输助手网页让我登录，并在任务进行时保持连接。
-```
+然后按 Claude 给出的路径重新启动 Claude Code：
 
-扫码登录官方网页后，即可在手机微信文件传输助手中发送 `🍍?` 或 `🍍：xxx`。
-
-### Claude Code CLI
-
-1. 下载 `pineapple-claude-plugin-0.2.0.zip`。
-2. 在 Claude Code CLI 中输入：
-
-```text
-请把 D:\Downloads\pineapple-claude-plugin-0.2.0.zip 解压到 D:\Tools\pineapple-claude-plugin，并告诉我启动这个本地 plugin 的命令。不要启动微信页面。
-```
-
-3. 按 Claude 给出的路径启动插件，Windows 示例：
-
-```powershell
+`powershell
 claude --plugin-dir D:\Tools\pineapple-claude-plugin
-```
+`
 
-4. 在这个 Claude Code session 中输入：
+### 第三步：初始化（仅首次）
 
-```text
+在新 session 中输入：
+
+`
 启用菠萝。请先初始化；需要写入本地工具或安装依赖时，先把计划告诉我，等我确认。
-```
+`
 
-5. 确认安装计划后，Claude 会自动安装运行工具和网页依赖。之后说“本次任务启用菠萝控制”，登录打开的官方网页即可开始使用。
+Agent 会展示将要写入的内容，**你确认后**才会安装依赖和创建本地工具。不需要管理员权限。
 
-### 日常说法
+### 第四步：开始使用
 
-安装完成后，你只需要对 Codex 或 Claude 说：
+`
+本次任务启用菠萝控制，打开文件传输助手网页让我登录。
+`
 
-```text
+扫码登录后，手机微信文件传输助手发 🍍? 即可查询进度。
+
+> 菠萝只在 agent 任务运行期间工作，不会后台常驻。
+
+---
+
+## 日常用法
+
+`
 本次任务启用菠萝控制。
 进入菠萝设置页。
 把菠萝 emoji 改为 🛰️，刷新时间改为 3 秒。
 菠萝简介。
-```
-
-菠萝只在当前 agent 任务运行期间工作；它不会在后台常驻，也不能在 agent 没运行时从微信唤醒一个新任务。
+`
 
 ---
 

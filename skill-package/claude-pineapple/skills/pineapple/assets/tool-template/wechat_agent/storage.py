@@ -29,6 +29,7 @@ class JsonStore:
         self.config_path = self.directory / "config.json"
         self.runtime_path = self.directory / "runtime.json"
         self.log_path = self.directory / "bridge.jsonl"
+        self.interrupt_flag_path = self.directory / "interrupt.flag"
 
     def load_json(self, path: Path, default: dict[str, Any]) -> dict[str, Any]:
         try:

@@ -165,6 +165,10 @@ class WechatBridge:
             if text.startswith(prefix) and text[len(prefix) :].strip():
                 ack = f"{config.emoji}{config.received_prefix}{config.auto_ack_text}"
                 self._safe_send(ack, "auto_ack")
+                try:
+                    self.store.interrupt_flag_path.write_text("", encoding="utf-8")
+                except OSError:
+                    pass
                 return {
                     "type": "request",
                     "content": text[len(prefix) :].strip(),
