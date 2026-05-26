@@ -80,6 +80,52 @@ class CliTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("--watch", result.stderr)
 
+    def test_watch_exits_after_terminal_notification_is_sent(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            status_path = directory / "status.json"
+            status_path.write_text(
+                json.dumps(
+                    {
+                        "state": "done",
+                        "task": "生命周期测试",
+                        "result": "任务已经完成",
+                        "notification_id": "lifecycle-done",
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-B",
+                    "-m",
+                    "wechat_agent.wechat_tick",
+                    "--backend",
+                    "file-mock",
+                    "--watch",
+                    "--storage-dir",
+                    str(directory),
+                    "--status-json",
+                    str(status_path),
+                ],
+                cwd=Path(__file__).parents[1],
+                text=True,
+                encoding="utf-8",
+                capture_output=True,
+                timeout=5,
+                check=True,
+            )
+            self.assertEqual(json.loads(result.stdout), [])
+            sent = [
+                json.loads(line)["text"]
+                for line in (directory / "mock_outbox.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+            self.assertEqual(sent, ["🍍完成：任务已经完成"])
+
 
 if __name__ == "__main__":
     unittest.main()

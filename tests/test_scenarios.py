@@ -13,6 +13,15 @@ from wechat_agent.bridge import WechatBridge
 from wechat_agent.backends import MockBackend, NullBackend
 
 
+class ClosingMockBackend(MockBackend):
+    def __init__(self) -> None:
+        super().__init__()
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class BridgeScenarioTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -65,15 +74,42 @@ class BridgeScenarioTests(unittest.TestCase):
         self.bridge.tick(status)
         self.assertEqual(self.backend.sent, ["🍍收到：我会只给最小修改方案。"])
 
+    def test_connected_notice_is_an_outbox_message_sent_once(self) -> None:
+        status = {
+            "state": "running",
+            "task": "当前主任务",
+            "progress": "菠萝控制已连接，正在开始执行任务",
+            "outbox": [
+                {
+                    "id": "run-001-connected",
+                    "type": "received",
+                    "text": "菠萝控制已连接。",
+                }
+            ],
+        }
+        self.bridge.tick(status)
+        self.bridge.tick(status)
+        self.assertEqual(self.backend.sent, ["🍍收到：菠萝控制已连接。"])
+
     def test_06_done_sends_completion(self) -> None:
         self.bridge.tick({"state": "done", "task": "测试", "result": "测试完成"})
         self.assertEqual(self.backend.sent, ["🍍完成：测试完成"])
+
+    def test_terminal_status_closes_task_transport_after_sending(self) -> None:
+        backend = ClosingMockBackend()
+        bridge = WechatBridge(backend, self.home)
+        bridge.tick({"state": "running", "task": "测试", "progress": "进行中"})
+        self.assertFalse(backend.closed)
+        bridge.tick({"state": "done", "task": "测试", "result": "测试完成"})
+        self.assertTrue(backend.closed)
+        self.assertEqual(backend.sent, ["🍍完成：测试完成"])
 
     def test_07_done_notification_is_deduplicated(self) -> None:
         status = {"state": "done", "task": "测试", "result": "测试完成"}
         self.bridge.tick(status)
         self.bridge.tick(status)
         self.assertEqual(self.backend.sent, ["🍍完成：测试完成"])
+        self.assertTrue(self.bridge.terminal_notification_sent(status))
 
     def test_08_error_sends_deduplicated_completion(self) -> None:
         status = {

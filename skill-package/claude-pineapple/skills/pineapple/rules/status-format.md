@@ -33,6 +33,14 @@ meaningful; omit it for short or single-step work.
 | `done` | Completed successfully | `result`, `notification_id` |
 | `error` | Failed | `result`, `notification_id` |
 
+Use `waiting_user` only when execution of the original main task is blocked by a
+concrete missing decision or information. Do not use it because the bridge is open,
+because QR login is pending while other work can proceed, or because the user has
+not sent an optional WeChat instruction.
+
+Update status at user-visible milestones rather than every trivial read: connection
+startup, a substantial phase beginning or ending, application of steering, and task end.
+
 ## Completion Example
 
 ```json

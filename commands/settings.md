@@ -1,16 +1,11 @@
-# Command: Pineapple Settings
+# Command: Pineapple Settings (CLI)
 
 **Result**: Current settings displayed, or configuration updated.
 
 ## Read Settings
 
-```python
-from wechat_agent import wechat_tick
-from wechat_agent.storage import JsonStore
-from wechat_agent.config import BridgeConfig
-
-store = JsonStore()
-config = BridgeConfig.from_mapping(store.load_json(store.config_path, {}))
+```powershell
+<bridge-python> -m wechat_agent.control settings
 ```
 
 Reply in this **fixed format**:
@@ -24,15 +19,9 @@ Reply in this **fixed format**:
 
 ## Change Settings
 
-Pass `config` inside a tick call:
-
-```python
-wechat_tick({
-    "state": "idle",
-    "task": "configure",
-    "config": {"emoji": "🛰️", "check_interval": 3},
-})
+```powershell
+<bridge-python> -m wechat_agent.control configure --emoji 🛰️ --check-interval 3
 ```
 
 Allowed intervals: `3`, `5`, `10` seconds. Other values normalize to the nearest bucket.
-Changes persist to disk and apply to the next active loop.
+Changes persist immediately to disk and apply on the next watch loop.

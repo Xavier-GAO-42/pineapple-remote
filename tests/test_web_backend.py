@@ -63,6 +63,25 @@ class PageBoundWebBackend(WebFileHelperBackend):
 
 @unittest.skipUnless(sync_playwright, "Playwright web dependency is not installed")
 class WebDomSelectorTests(unittest.TestCase):
+    def test_web_backend_profile_is_task_local_and_cleaned_on_close(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            first = WebFileHelperBackend(Path(temporary), headed=False)
+            second = WebFileHelperBackend(Path(temporary), headed=False)
+            first_profile = first.profile_dir
+            second_profile = second.profile_dir
+            self.assertNotEqual(first_profile, second_profile)
+            self.assertTrue(first_profile.exists())
+            self.assertTrue(second_profile.exists())
+            prior_session_id = first.transport_session_id
+            first.close()
+            second.close()
+            self.assertFalse(first_profile.exists())
+            self.assertFalse(second_profile.exists())
+            self.assertNotEqual(first.transport_session_id, prior_session_id)
+            first._new_session_profile()
+            self.assertNotEqual(first.profile_dir, first_profile)
+            first.close()
+
     def test_logged_in_dom_protocol_read_and_send(self) -> None:
         with tempfile.TemporaryDirectory() as temporary, sync_playwright() as playwright:
             try:

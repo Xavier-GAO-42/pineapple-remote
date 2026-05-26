@@ -24,3 +24,9 @@ Add an `outbox` array to `status.json` before the next tick:
 - `type: "received"` → prefix `🍍收到：`
 - `type: "done"` → prefix `🍍完成：`
 - Keep text brief; this is a control channel, not a chat
+- Every controlled task must send exactly one connected item after the page is usable:
+  `{"id":"<run-id>-connected","type":"received","text":"菠萝控制已连接。"}`
+- Completion is normally sent by terminal `state: "done"` or `state: "error"`;
+  do not duplicate it as an outbox item.
+- Additional outbox messages are optional and reserved for meaningful acknowledgements
+  or blockers, not routine progress. Progress remains available through `🍍?`.

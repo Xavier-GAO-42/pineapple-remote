@@ -138,6 +138,10 @@ class WechatBridge:
                 self.store.log("backend_error", error=str(exc))
 
         self.store.save_json(self.store.runtime_path, runtime)
+        if self.terminal_notification_sent(status_dict):
+            close = getattr(self.backend, "close", None)
+            if callable(close):
+                close()
         return events
 
     def _safe_send(self, text: str, action: str) -> bool:
@@ -182,9 +186,28 @@ class WechatBridge:
         config: BridgeConfig,
         runtime: dict[str, Any],
     ) -> None:
+        completion = self._completion(status)
+        if completion is None:
+            return
+        key, result = completion
+        if key in runtime["sent_completions"]:
+            return
+        if self._safe_send(f"{config.emoji}{config.done_prefix}{result}", "completion"):
+            _remember(runtime["sent_completions"], key)
+
+    def terminal_notification_sent(self, status: Mapping[str, Any] | None) -> bool:
+        """Return true once a terminal status has had its completion notification sent."""
+        completion = self._completion(dict(status or {}))
+        if completion is None:
+            return False
+        runtime = self.store.load_json(self.store.runtime_path, {})
+        return completion[0] in runtime.get("sent_completions", [])
+
+    @staticmethod
+    def _completion(status: Mapping[str, Any]) -> tuple[str, str] | None:
         state = status.get("state")
         if state not in ("done", "error"):
-            return
+            return None
         result = str(status.get("result") or status.get("progress") or "").strip()
         if state == "error":
             result = f"任务未完成，原因：{result or '未知错误'}"
@@ -194,10 +217,7 @@ class WechatBridge:
             status.get("notification_id")
             or _fingerprint([state, status.get("task", ""), result])
         )
-        if key in runtime["sent_completions"]:
-            return
-        if self._safe_send(f"{config.emoji}{config.done_prefix}{result}", "completion"):
-            _remember(runtime["sent_completions"], key)
+        return key, result
 
     def _send_outbox(
         self,

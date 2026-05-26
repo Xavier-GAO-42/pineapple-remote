@@ -21,6 +21,7 @@ SKILL_DIR = Path(__file__).resolve().parents[1]
 TEMPLATE_DIR = SKILL_DIR / "assets" / "tool-template"
 DEFAULT_TOOL_HOME = Path.home() / ".pineapple" / "bridge-tool"
 PACKAGING_FILES = ("pyproject.toml", "LICENSE", "README.md")
+TOOL_VERSION = "0.2.1"
 
 
 def tool_home() -> Path:
@@ -40,6 +41,14 @@ def is_tool_source(directory: Path) -> bool:
         and (directory / "wechat_agent" / "bridge.py").is_file()
         and (directory / "wechat_agent" / "control.py").is_file()
     )
+
+
+def installed_version(directory: Path) -> str | None:
+    try:
+        payload = json.loads((directory / "pineapple-install.json").read_text(encoding="utf-8"))
+        return str(payload.get("tool_version") or "")
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return None
 
 
 def candidates(extra: list[str]) -> list[Path]:
@@ -83,6 +92,9 @@ def discover(extra: list[str]) -> dict[str, Any]:
                     "python": str(python_path(directory))
                     if python_path(directory).exists()
                     else None,
+                    "tool_version": installed_version(directory)
+                    if directory == tool_home().resolve()
+                    else None,
                 }
             )
     if not found:
@@ -92,6 +104,13 @@ def discover(extra: list[str]) -> dict[str, Any]:
             next_action="ask_for_existing_source_or_install_bundled_template",
         )
     preferred = next((item for item in found if item["installed"]), found[0])
+    if preferred["installed"] and preferred["tool_version"] != TOOL_VERSION:
+        return result(
+            "upgrade_needed",
+            found=found,
+            preferred=preferred,
+            latest_tool_version=TOOL_VERSION,
+        )
     return result("ready" if preferred["installed"] else "source_found", found=found, preferred=preferred)
 
 
@@ -101,6 +120,7 @@ def plan(source: Path, skip_dependencies: bool) -> dict[str, Any]:
     return result(
         "plan",
         source=label,
+        tool_version=TOOL_VERSION,
         packaging_source="bundled_template",
         tool_home=str(target),
         writes=[
@@ -121,9 +141,7 @@ def plan(source: Path, skip_dependencies: bool) -> dict[str, Any]:
 
 
 def prepare_target(source: Path, target: Path) -> None:
-    if target.exists() and is_tool_source(target):
-        return
-    if target.exists() and any(target.iterdir()):
+    if target.exists() and any(target.iterdir()) and not is_tool_source(target):
         backup = target.with_name(f"{target.name}.backup-{int(time.time())}")
         target.rename(backup)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -161,6 +179,7 @@ def install(source: Path, skip_dependencies: bool) -> dict[str, Any]:
     manifest = {
         "tool_home": str(target),
         "python": str(environment_python),
+        "tool_version": TOOL_VERSION,
         "installed_from": str(source.resolve()),
         "installed_at": int(time.time()),
     }
@@ -198,7 +217,7 @@ def main(argv: list[str] | None = None) -> int:
             else install(source, args.skip_dependencies)
         )
     print(json.dumps(payload, ensure_ascii=False))
-    return 0 if payload["status"] in ("ready", "source_found", "missing", "plan") else 2
+    return 0 if payload["status"] in ("ready", "source_found", "missing", "upgrade_needed", "plan") else 2
 
 
 if __name__ == "__main__":

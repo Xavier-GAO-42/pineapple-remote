@@ -63,19 +63,26 @@ def main(argv: list[str] | None = None) -> int:
         else:
             backend = WebFileHelperBackend(storage_dir)
         bridge = WechatBridge(backend, storage_dir)
-        if args.watch:
-            while True:
-                status = _read_status(args.status_json)
-                events = bridge.tick(status, args.check_interval)
-                print(json.dumps(events, ensure_ascii=False), flush=True)
-                config = BridgeConfig.from_mapping(
-                    bridge.store.load_json(bridge.store.config_path, {})
-                )
-                time.sleep(config.check_interval)
-        status = _read_status(args.status_json)
-        events = bridge.tick(status, args.check_interval)
-        print(json.dumps(events, ensure_ascii=False), flush=True)
-        return 0
+        try:
+            if args.watch:
+                while True:
+                    status = _read_status(args.status_json)
+                    events = bridge.tick(status, args.check_interval)
+                    print(json.dumps(events, ensure_ascii=False), flush=True)
+                    if bridge.terminal_notification_sent(status):
+                        return 0
+                    config = BridgeConfig.from_mapping(
+                        bridge.store.load_json(bridge.store.config_path, {})
+                    )
+                    time.sleep(config.check_interval)
+            status = _read_status(args.status_json)
+            events = bridge.tick(status, args.check_interval)
+            print(json.dumps(events, ensure_ascii=False), flush=True)
+            return 0
+        finally:
+            close = getattr(backend, "close", None)
+            if callable(close):
+                close()
     except KeyboardInterrupt:
         return 130
     except (OSError, ValueError, json.JSONDecodeError) as exc:

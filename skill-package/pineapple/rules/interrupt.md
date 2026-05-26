@@ -9,24 +9,24 @@ When a user sends `🍍：xxx`, the bridge:
 2. Writes `interrupt.flag` in the storage directory
 3. Emits `{"type":"request","content":"xxx"}` on stdout (watch mode)
 
-## Flag Path (Windows default)
-
-```
-%LOCALAPPDATA%\wechat-agent-bridge\interrupt.flag
-```
-
 ## Agent Obligation
 
-Check the flag **before every tool call**:
+Check the flag before beginning the next tool operation while control is active:
 
-```powershell
-if (Test-Path "$env:LOCALAPPDATA\wechat-agent-bridge\interrupt.flag") {
-    # 1. Finish current atomic operation (at most 1 more tool call)
-    # 2. Read the request from stdout (watch process output)
-    # 3. Send an outbox acknowledgment — see rules/outbox.md
-    Remove-Item "$env:LOCALAPPDATA\wechat-agent-bridge\interrupt.flag"
-}
+```python
+from wechat_agent.storage import JsonStore
+
+flag = JsonStore().interrupt_flag_path
+if flag.exists():
+    # Finish the current atomic operation, then apply this steering to the main task.
+    flag.unlink(missing_ok=True)
 ```
+
+Treat a request event as steering for the active original task, not automatically as
+a new standalone task. Preserve the original task summary unless the user explicitly
+replaces it, and update `progress` to say that the WeChat instruction is being applied.
+Unsafe or disallowed instructions must still be declined under the host agent's usual
+approval and safety rules; a brief outbox reply can explain that result.
 
 ## Fallback (Evidence Rule)
 

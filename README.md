@@ -11,11 +11,16 @@
 
 任务完成后，结果自动推送到文件传输助手：
 
-`
+```text
 🍍完成：检查完毕，修改位置与结果摘要已整理完成。
-`
+```
 
 不需要守在电脑前，不需要服务端，不读取你的其他聊天。
+
+菠萝跟随的是你刚刚交给 agent 的那一次任务：连接建立后会先发出
+`🍍收到：菠萝控制已连接。`，随后 agent 继续原任务；结果发出后，本次
+Python helper 自动退出，不在电脑上留下等待新任务的常驻服务。每次启用
+都会打开一个新的临时网页会话，由你为这一次任务扫码登录。
 
 ---
 
@@ -27,22 +32,22 @@
 
 | 你用的 CLI | 下载文件 |
 |-----------|---------|
-| Codex CLI | [pineapple-codex-skill-0.2.0.zip](dist/pineapple-codex-skill-0.2.0.zip) |
-| Claude Code CLI | [pineapple-claude-plugin-0.2.0.zip](dist/pineapple-claude-plugin-0.2.0.zip) |
+| Codex CLI | [pineapple-codex-skill-0.2.1.zip](dist/pineapple-codex-skill-0.2.1.zip) |
+| Claude Code CLI | [pineapple-claude-plugin-0.2.1.zip](dist/pineapple-claude-plugin-0.2.1.zip) |
 
 ### 第二步：让 agent 安装它
 
 **Codex CLI** — 打开 Codex，复制下面这句（替换实际路径）：
 
 `
-请把 D:\Downloads\pineapple-codex-skill-0.2.0.zip 安装为我的 pineapple skill。
+请把 D:\Downloads\pineapple-codex-skill-0.2.1.zip 安装为我的 pineapple skill。
 安装完成后告诉我如何启用，不要启动微信页面。
 `
 
 **Claude Code CLI** — 打开 Claude Code，粘贴：
 
 `
-请把 D:\Downloads\pineapple-claude-plugin-0.2.0.zip 解压到 D:\Tools\pineapple-claude-plugin，
+请把 D:\Downloads\pineapple-claude-plugin-0.2.1.zip 解压到 D:\Tools\pineapple-claude-plugin，
 告诉我启动这个本地 plugin 的命令。不要启动微信页面。
 `
 
@@ -52,25 +57,25 @@
 claude --plugin-dir D:\Tools\pineapple-claude-plugin
 `
 
-### 第三步：初始化（仅首次）
+### 第三步：启用控制（首次会自动初始化）
 
-在新 session 中输入：
+需要远程查看或干预某个任务时，直接把控制要求和主任务一起输入，例如：
 
-`
-启用菠萝。请先初始化；需要写入本地工具或安装依赖时，先把计划告诉我，等我确认。
-`
+```text
+本次任务启用菠萝控制。请检查 D:\demo7 作业，只告诉我应修改的位置。
+首次使用请先展示初始化计划，等我确认后自动安装依赖并打开文件传输助手网页让我登录。
+```
 
-Agent 会展示将要写入的内容，**你确认后**才会安装依赖和创建本地工具。不需要管理员权限。
+Agent 会展示将要写入的内容，**你确认后**才会安装依赖、创建本地工具并立即打开官方网页。每次受控任务都需要扫码一次；扫码后会收到 `🍍收到：菠萝控制已连接。`，agent 会继续执行你同一条消息中的主任务。不要关闭本次 helper 网页或进程，否则本次控制会结束。不需要管理员权限。
+后续更新 skill 时，如果发现旧版用户级工具，agent 也会先展示升级计划，经你确认后升级再启动控制。
 
 ### 第四步：开始使用
 
-`
-本次任务启用菠萝控制，打开文件传输助手网页让我登录。
-`
-
-扫码登录后，手机微信文件传输助手发 🍍? 即可查询进度。
+扫码登录并收到连接确认后，手机微信文件传输助手发 🍍? 即可查询进度；任务结束时会收到完成摘要，本次 helper 和网页会话随即退出。
 
 > 菠萝只在 agent 任务运行期间工作，不会后台常驻。
+
+> 对 `auto` 模式：如果首次安装持续被 Bash/命令授权拦住，agent 会先向你说明写入、联网安装依赖和打开官方网页的范围，然后建议你是否为这一次可信任务重开 bypass 权限。Codex 可用 `codex --dangerously-bypass-approvals-and-sandbox`；Claude Code 可用 `claude --plugin-dir "<插件路径或 zip>" --permission-mode bypassPermissions`。这是扩大命令权限的高风险选项，不能静默开启，也不要在不可信目录使用。
 
 ---
 
@@ -88,6 +93,10 @@ Agent 会展示将要写入的内容，**你确认后**才会安装依赖和创�
 ## 技术实现
 
 agent 周期性调用唯一公开主操作 `wechat_tick(status)`，即可查询协议消息、更新状态并发送任务通知。项目采用 MIT License，可审阅、修改和开源分发。
+
+在 Codex CLI 或 Claude Code CLI 的宿主循环里，skill 启动一个仅属于当前任务
+的前台 Python helper 来重复执行这个同一 tick 操作。它不是额外公开 API，
+也不是常驻服务。
 
 ## 边界
 
@@ -138,9 +147,9 @@ agent 周期性调用唯一公开主操作 `wechat_tick(status)`，即可查询�
 py -m pip install -e ".[web]"
 ```
 
-通常不需要管理员权限。网页版登录会话可能在关闭页面时失效，因此推荐让实际
-运行中的 agent 首次调用 `wechat_tick()` 打开官方页面，再在该保持打开的页面
-中扫码；同一 agent 进程随后的 tick 会复用该页面。
+通常不需要管理员权限。每次受控任务创建新的临时网页版会话，并在任务期间由
+实际运行中的 agent 保持页面打开；用户为该任务扫码一次。任务终止并发送完成
+通知后，该页面会话随 helper 关闭，不用于下一次任务。
 
 ## Python API
 
@@ -185,11 +194,15 @@ wechat_tick({
     "state": "running",
     "task": "检查 demo7 作业",
     "outbox": [
-        {"id": "ack-intervention-1", "type": "received",
-         "text": "我会只给最小修改方案，不改架构。"}
+        {"id": "demo7-connected", "type": "received",
+         "text": "菠萝控制已连接。"}
     ],
 })
 ```
+
+连接通知是每次受控主任务的第一条主动消息，只发送一次。之后 agent 只有在
+确实需要主动确认干预或报告阻塞时才添加新的 `outbox` 消息；日常进度由用户
+发送 `🍍?` 查询。
 
 相同完成结果会自动去重；如果两个独立任务可能拥有完全一致的任务名和结果，
 在完成状态加入不同的 `notification_id`。
@@ -226,7 +239,7 @@ wechat_tick({
 - `config.json`：emoji 和检查间隔。
 - `runtime.json`：当前状态和去重键。
 - `bridge.jsonl`：发送与安全失败日志。
-- `browser-profile\`：官方网页运行所使用的专用浏览器 profile。
+- `browser-sessions\`：活动任务临时网页 profile 的父目录；正常结束时本次子目录会被清理。
 
 ## CLI API
 
@@ -256,10 +269,11 @@ Get-Content .bridge-test\mock_outbox.jsonl
 py -m wechat_agent.wechat_tick --backend web --watch --status-json status.json
 ```
 
-该命令不是后台进程或 server：它是由 agent 持有的前台 bridge 进程。首次出现
-官方网页时扫码登录；agent 后续更新 `status.json` 并从标准输出逐行读取 JSON
-events。一次启动即退出的 `--backend web` 会被拒绝，因为关闭授权页面后不能
-可靠保留网页版会话。
+该命令不是后台进程或 server：它是由当前任务持有的前台 bridge 进程。每次出现
+新官方网页时为本次任务扫码登录；agent 后续更新 `status.json` 并从标准输出逐行读取 JSON
+events。状态变为 `done` 或 `error` 时，bridge 在完成通知发送成功后自动退出；
+同时关闭该任务的页面会话；若发送暂时失败则保留进程重试。一次启动即退出的 `--backend web` 会被拒绝，
+因为关闭授权页面后不能可靠保留网页版会话。
 
 仓库提供可用于人工冒烟验证的 UTF-8 空闲状态文件：
 
@@ -271,7 +285,8 @@ py -m wechat_agent.wechat_tick --backend web --watch --status-json examples\stat
 
 默认后端使用 Python Playwright 打开腾讯官方页面
 [filehelper.weixin.qq.com](https://filehelper.weixin.qq.com/)，并在专用浏览器
-profile 中运行一个可见页面。同一 agent 进程内会复用用户扫码建立的页面会话。
+临时 profile 中运行一个可见页面。同一任务进程内会复用用户扫码建立的页面会话；
+新的任务进程使用新的临时 profile，并重新扫码。
 它只从 `#chatBody .msg-text` 读取可见文本，只处理当前 emoji 对应的协议消息
 （查询和请求标点兼容全角/半角），并通过
 `textarea.chat-panel__input-container` 回复。
@@ -284,11 +299,11 @@ server 或后台守护进程。
 网页应用在加载和登录过程中会按腾讯官方页面自身行为请求腾讯的静态资源、登录
 与文件助手服务域名；bridge 不自行调用微信协议接口，也不将消息发往第三方服务。
 
-已在 Windows 官方网页版上人工验证：同一保持打开的 agent 会话中，连续两次发送
+已在 Windows 官方网页版上人工验证：同一项活动任务的页面中，连续两次发送
 相同的状态查询均会在约 3 秒轮询模式下分别得到状态回复。
 
-已在 Windows 官方网页版上完成一次真实 agent lifecycle 联调：微信侧发布请求后
-收到固定确认与自定义确认，运行期间查询得到状态回复，任务结束后收到完成通知。
+已在 Windows 官方网页版上完成一次真实 agent lifecycle 联调：活动任务运行期间
+查询得到状态回复并可接收补充请求，任务结束后收到完成通知。
 
 真实微信联调时，应从保存为 UTF-8 的 Python 模块调用 bridge；不要通过可能使用
 本地代码页重编码的 shell 管道内联传递中文或 emoji 测试消息。
@@ -299,13 +314,14 @@ server 或后台守护进程。
 py -B examples\live_demo_agent.py
 ```
 
-网页登录后发送 `🍍：完整测试`；收到脚本的提示时再发送一次 `🍍？`。演示会验证
-固定确认、自定义确认、运行中状态查询和完成通知，并在一次任务完成后自动退出。
+为这次演示扫码后发送 `🍍？` 查询运行中状态，也可以发送 `🍍：补充测试要求`
+观察 steering event。演示会验证连接通知、运行中状态查询、补充要求和完成通知，
+并在一次任务完成后自动退出。
 
 ## 安全与隐私
 
 - 运行时不截图、不截屏、不使用 OCR，也不读取剪贴板。
-- 仅用 Python、Playwright、浏览器 DOM 与本地 JSON/浏览器 profile 实现。
+- 仅用 Python、Playwright、浏览器 DOM 与本地 JSON/任务级临时浏览器 profile 实现。
 - bridge 仅驱动官方文件传输助手网页界面，不访问微信协议层，不 hook 或 inject
   微信进程，不连接自建服务。
 - 网页后端天生只呈现文件传输助手内容，并只接收当前 emoji 对应的协议文本。
@@ -314,7 +330,7 @@ py -B examples\live_demo_agent.py
 
 需要明确了解的风险：
 
-- `browser-profile\` 会保存该官方网页的登录会话数据，应按敏感本地数据保护；结束使用后可以退出网页登录并删除该目录。
+- 活动任务的临时网页 profile 含有该任务的登录会话数据，应按敏感本地数据保护；正常完成后会自动清理。进程被强行中止时可能遗留在 `browser-sessions\`，可在确认没有运行中的菠萝任务后删除。
 - 能使用你的微信账户或已登录网页会话的人，也能发送菠萝指令；本 MVP 不额外提供口令或多因素鉴权。
 - 微信收到的请求会交给正在运行的 agent 处理。agent 必须继续遵守宿主原有的文件、命令与审批边界，不能因为消息来自菠萝而绕过确认。
 - `runtime.json` 和发送日志会保存 agent 主动提供的状态/回复摘要；不要将口令、token 或不需要出现在微信里的敏感正文放入 `status` 或 `outbox`。
@@ -352,7 +368,7 @@ Planted by **GALAXY x Codex** on `2026-05-25`.
 - 共用工具默认位置：`%USERPROFILE%\.pineapple\bridge-tool`。
 - skill 首次运行先只读搜索已有兼容工具；找到后报告来源，找不到则询问用户是否有脚本。
 - 采用或安装前会先展示写入目录、创建 venv 和依赖安装计划，得到确认后才写入共用目录；最终回退才是安装 skill 内嵌模板。
-- 后续 session 只需重新启用 skill，即可发现并复用共用工具。
+- 后续 session 只需重新启用 skill，即可发现并复用共用工具代码与依赖；网页登录不复用，每次受控任务重新扫码。
 
 skill 提供的对话能力：
 

@@ -5,6 +5,9 @@ __pycache__/
 .bridge-test/
 .wechat-agent/
 browser-profile/
+browser-sessions/
 build/
 *.zip
 !dist/*.zip
+如何开发skill.md
+问题.md

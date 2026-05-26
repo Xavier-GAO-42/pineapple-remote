@@ -8,6 +8,7 @@ $scriptPath = Join-Path $PSScriptRoot "bootstrap.py"
 $templatePath = Join-Path (Split-Path $PSScriptRoot -Parent) "assets\tool-template"
 $defaultToolHome = Join-Path $env:USERPROFILE ".pineapple\bridge-tool"
 $toolHome = if ($env:PINEAPPLE_TOOL_HOME) { $env:PINEAPPLE_TOOL_HOME } else { $defaultToolHome }
+$toolVersion = "0.2.1"
 $command = if ($BootstrapArgs.Count -gt 0) { $BootstrapArgs[0] } else { "" }
 
 function Test-PineappleToolSource([string] $Path) {
@@ -29,10 +30,17 @@ if ($command -eq "discover") {
     foreach ($candidate in ($candidatePaths | Select-Object -Unique)) {
         if (Test-PineappleToolSource $candidate) {
             $resolved = (Resolve-Path -LiteralPath $candidate).Path
+            $venvPython = Join-Path $resolved ".venv\Scripts\python.exe"
+            $manifestPath = Join-Path $resolved "pineapple-install.json"
+            $installedVersion = $null
+            if ($resolved -eq $toolHome -and (Test-Path -LiteralPath $manifestPath)) {
+                try { $installedVersion = (Get-Content -Raw -Encoding UTF8 $manifestPath | ConvertFrom-Json).tool_version } catch {}
+            }
             $found += [ordered]@{
                 source = $resolved
                 installed = ($resolved -eq $toolHome)
-                python = $null
+                python = $(if (Test-Path -LiteralPath $venvPython) { $venvPython } else { $null })
+                tool_version = $installedVersion
             }
         }
     }
@@ -46,9 +54,10 @@ if ($command -eq "discover") {
         $preferred = @($found | Where-Object { $_.installed })[0]
         if (-not $preferred) { $preferred = $found[0] }
         [ordered]@{
-            status = $(if ($preferred.installed) { "ready" } else { "source_found" })
+            status = $(if ($preferred.installed -and $preferred.tool_version -ne $toolVersion) { "upgrade_needed" } elseif ($preferred.installed) { "ready" } else { "source_found" })
             found = $found
             preferred = $preferred
+            latest_tool_version = $toolVersion
         } | ConvertTo-Json -Depth 4 -Compress
     }
     exit 0
@@ -64,6 +73,7 @@ if ($command -eq "plan") {
     [ordered]@{
         status = "plan"
         source = $source
+        tool_version = $toolVersion
         packaging_source = "bundled_template"
         tool_home = $toolHome
         writes = @(

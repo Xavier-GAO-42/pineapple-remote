@@ -14,11 +14,11 @@ class DemoAgentContractTests(unittest.TestCase):
             Path(__file__).parents[1] / "examples" / "live_demo_agent.py"
         ).read_text(encoding="utf-8")
         self.assertIn("wechat_tick", source)
-        self.assertIn('"state": "idle"', source)
         self.assertIn('"state": "running"', source)
         self.assertIn('"state": "done"', source)
-        self.assertIn("🍍：完整测试", source)
+        self.assertIn("菠萝控制已连接。", source)
         self.assertIn("🍍？", source)
+        self.assertNotIn("等待测试请求", source)
 
 
 if __name__ == "__main__":

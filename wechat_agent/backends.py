@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -106,9 +107,10 @@ class FileMockBackend:
 class WebFileHelperBackend:
     """Python browser automation for the official WeChat File Helper web app.
 
-    It opens only filehelper.weixin.qq.com in a dedicated persistent browser
+    It opens only filehelper.weixin.qq.com in a task-local temporary browser
     profile and reads DOM text. It does not inspect desktop WeChat, take images,
-    use OCR, or speak an unofficial WeChat protocol.
+    use OCR, or speak an unofficial WeChat protocol. A fresh helper therefore
+    requires a fresh login and does not retain web credentials between tasks.
     """
 
     always_poll = False
@@ -131,8 +133,10 @@ class WebFileHelperBackend:
         headed: bool = True,
         browser_channel: str | None = None,
     ) -> None:
-        self.profile_dir = Path(storage_dir) / "browser-profile"
-        self.profile_dir.mkdir(parents=True, exist_ok=True)
+        self.session_root = Path(storage_dir) / "browser-sessions"
+        self.session_root.mkdir(parents=True, exist_ok=True)
+        self._temporary_profile: tempfile.TemporaryDirectory[str] | None = None
+        self.profile_dir = self.session_root
         self.headed = headed
         self.browser_channel = browser_channel or os.environ.get(
             "WECHAT_AGENT_BROWSER_CHANNEL", "msedge"
@@ -142,6 +146,13 @@ class WebFileHelperBackend:
         self._playwright: Any | None = None
         self._context: Any | None = None
         self._page: Any | None = None
+        self._new_session_profile()
+
+    def _new_session_profile(self) -> None:
+        self._temporary_profile = tempfile.TemporaryDirectory(
+            prefix="session-", dir=str(self.session_root), ignore_cleanup_errors=True
+        )
+        self.profile_dir = Path(self._temporary_profile.name)
 
     def _libraries(self) -> Any:
         try:
@@ -155,6 +166,8 @@ class WebFileHelperBackend:
     def _ensure_page(self) -> Any:
         if self._page is not None and not self._page.is_closed():
             return self._page
+        if self._temporary_profile is None:
+            self._new_session_profile()
         sync_playwright = self._libraries()
         try:
             self._playwright_manager = sync_playwright()
@@ -199,6 +212,10 @@ class WebFileHelperBackend:
         self._context = None
         self._playwright = None
         self._playwright_manager = None
+        if self._temporary_profile is not None:
+            self._temporary_profile.cleanup()
+            self._temporary_profile = None
+        self.transport_session_id = secrets.token_hex(8)
 
     def _visible_input(self, page: Any) -> Any | None:
         for selector in self.input_selectors:

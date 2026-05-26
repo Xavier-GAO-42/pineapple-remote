@@ -1,7 +1,7 @@
-"""One-shot live demo agent for the official File Helper web bridge.
+"""One-shot active-task demo for the official File Helper web bridge.
 
-Run this file directly from UTF-8 source. It waits for one WeChat request,
-keeps a running-state query window open, sends completion, and exits.
+Run this file directly from UTF-8 source. The main task starts immediately,
+allows query or steering while active, sends completion, and exits.
 """
 
 # Planted by GALAXY x Codex on 2026-05-25.
@@ -25,8 +25,7 @@ def main() -> int:
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Run one live WeChat bridge demo task.")
-    parser.add_argument("--wait-request", type=int, default=300)
-    parser.add_argument("--running-seconds", type=int, default=15)
+    parser.add_argument("--running-seconds", type=int, default=20)
     args = parser.parse_args()
 
     storage_dir = Path(default_storage_dir())
@@ -34,55 +33,36 @@ def main() -> int:
     run_id = uuid.uuid4().hex[:12]
     interval = 3
 
-    idle_status = {
-        "state": "idle",
-        "task": "",
-        "progress": "等待任务",
-        "config": {"check_interval": interval},
-    }
-    print("官方文件传输助手页面已打开。若需要请扫码，然后发送：🍍：完整测试", flush=True)
-
     try:
-        request_deadline = time.monotonic() + args.wait_request
-        request_content = ""
-        while time.monotonic() < request_deadline:
-            events = wechat_tick(
-                idle_status, check_interval=interval, backend=backend, storage_dir=storage_dir
-            )
-            request = next((event for event in events if event["type"] == "request"), None)
-            if request:
-                request_content = request["content"]
-                break
-            time.sleep(interval)
-        else:
-            print("等待测试请求超时，演示结束。", flush=True)
-            return 2
-
         running_status = {
             "state": "running",
-            "task": "运行微信 bridge 完整测试",
-            "progress": "已收到请求，正在验证处理中状态",
+            "task": "运行菠萝伴随主任务演示",
+            "progress": "菠萝控制已连接，正在验证运行中状态",
+            "config": {"check_interval": interval},
             "outbox": [
                 {
-                    "id": f"{run_id}-running-instruction",
+                    "id": f"{run_id}-connected",
                     "type": "received",
-                    "text": "完整测试已开始，请现在发送 🍍？ 查询处理中状态。",
+                    "text": "菠萝控制已连接。",
                 }
             ],
         }
-        print(f"收到 request event：{request_content}", flush=True)
+        print("官方文件传输助手页面已打开。请为本次任务扫码，并发送 🍍？ 查询进度。", flush=True)
         running_deadline = time.monotonic() + args.running_seconds
         while time.monotonic() < running_deadline:
-            wechat_tick(
+            events = wechat_tick(
                 running_status, check_interval=interval, backend=backend, storage_dir=storage_dir
             )
+            for event in events:
+                if event["type"] == "request":
+                    print(f"收到 steering event：{event['content']}", flush=True)
             time.sleep(interval)
 
         done_status = {
             "state": "done",
-            "task": "运行微信 bridge 完整测试",
+            "task": "运行菠萝伴随主任务演示",
             "progress": "已完成",
-            "result": "完整测试完成：请求、状态查询和完成通知链路已运行。",
+            "result": "演示完成：连接通知、状态查询和完成通知链路已运行。",
             "notification_id": f"{run_id}-done",
         }
         wechat_tick(

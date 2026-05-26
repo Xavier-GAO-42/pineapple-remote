@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wechat-agent-bridge"
-version = "0.2.0"
+version = "0.2.1"
 description = "A lightweight local WeChat File Transfer Assistant control bridge for AI agents."
 authors = [{name = "GALAXY x Codex"}]
 readme = "README.md"
