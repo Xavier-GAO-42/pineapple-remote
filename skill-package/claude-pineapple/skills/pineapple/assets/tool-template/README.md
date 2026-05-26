@@ -32,22 +32,22 @@ Python helper 自动退出，不在电脑上留下等待新任务的常驻服务
 
 | 你用的 CLI | 下载文件 |
 |-----------|---------|
-| Codex CLI | [pineapple-codex-skill-0.2.1.zip](dist/pineapple-codex-skill-0.2.1.zip) |
-| Claude Code CLI | [pineapple-claude-plugin-0.2.1.zip](dist/pineapple-claude-plugin-0.2.1.zip) |
+| Codex CLI | [pineapple-codex-skill-0.2.2.zip](dist/pineapple-codex-skill-0.2.2.zip) |
+| Claude Code CLI | [pineapple-claude-plugin-0.2.2.zip](dist/pineapple-claude-plugin-0.2.2.zip) |
 
 ### 第二步：让 agent 安装它
 
 **Codex CLI** — 打开 Codex，复制下面这句（替换实际路径）：
 
 `
-请把 D:\Downloads\pineapple-codex-skill-0.2.1.zip 安装为我的 pineapple skill。
+请把 D:\Downloads\pineapple-codex-skill-0.2.2.zip 安装为我的 pineapple skill。
 安装完成后告诉我如何启用，不要启动微信页面。
 `
 
 **Claude Code CLI** — 打开 Claude Code，粘贴：
 
 `
-请把 D:\Downloads\pineapple-claude-plugin-0.2.1.zip 解压到 D:\Tools\pineapple-claude-plugin，
+请把 D:\Downloads\pineapple-claude-plugin-0.2.2.zip 解压到 D:\Tools\pineapple-claude-plugin，
 告诉我启动这个本地 plugin 的命令。不要启动微信页面。
 `
 

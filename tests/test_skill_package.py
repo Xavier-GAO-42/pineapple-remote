@@ -120,7 +120,7 @@ class SkillPackageTests(unittest.TestCase):
             )
             payload = json.loads(result.stdout)
             self.assertEqual(payload["status"], "upgrade_needed")
-            self.assertEqual(payload["latest_tool_version"], "0.2.1")
+            self.assertEqual(payload["latest_tool_version"], "0.2.2")
 
     def test_plan_is_explicit_about_user_level_writes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -184,7 +184,7 @@ class SkillPackageTests(unittest.TestCase):
             expected_python.parent.mkdir(parents=True)
             expected_python.write_text("", encoding="utf-8")
             (target / "pineapple-install.json").write_text(
-                '{"tool_version":"0.2.1"}', encoding="utf-8"
+                '{"tool_version":"0.2.2"}', encoding="utf-8"
             )
             env = dict(os.environ)
             env["PINEAPPLE_TOOL_HOME"] = str(target)
