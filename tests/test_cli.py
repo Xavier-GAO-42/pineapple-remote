@@ -55,7 +55,7 @@ class CliTests(unittest.TestCase):
                 .read_text(encoding="utf-8")
                 .splitlines()
             ]
-            self.assertEqual(sent, ["🍍收到：AI正在处理中。"])
+            self.assertEqual(sent, ["[自动回复]🤖👌🍍:已接收请求，AI正在处理中。"])
 
     def test_web_cli_requires_foreground_watch_mode(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -94,7 +94,7 @@ class CliTests(unittest.TestCase):
                     },
                     ensure_ascii=False,
                 ),
-                encoding="utf-8",
+                encoding="utf-8-sig",
             )
             result = subprocess.run(
                 [
@@ -124,7 +124,7 @@ class CliTests(unittest.TestCase):
                 .read_text(encoding="utf-8")
                 .splitlines()
             ]
-            self.assertEqual(sent, ["🍍完成：任务已经完成"])
+            self.assertEqual(sent, ["[自动回复]🤖👌🍍:完成：任务已经完成"])
 
 
 if __name__ == "__main__":

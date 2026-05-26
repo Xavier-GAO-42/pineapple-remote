@@ -42,6 +42,14 @@ def _sentence(text: str) -> str:
     return text if text.endswith(("。", "！", "？", ".", "!", "?")) else text + "。"
 
 
+def _automatic_reply(config: BridgeConfig, text: str) -> str:
+    return f"{config.automatic_reply_prefix}{config.emoji}:{text}"
+
+
+def _agent_reply(config: BridgeConfig, text: str) -> str:
+    return f"{config.agent_reply_prefix}{config.emoji}:{text}"
+
+
 class WechatBridge:
     """Run one bridge iteration against one selected transport backend."""
 
@@ -167,12 +175,12 @@ class WechatBridge:
         self, text: str, config: BridgeConfig, status: Mapping[str, Any]
     ) -> dict[str, str] | None:
         if text in config.query_commands():
-            reply = f"{config.emoji}{config.received_prefix}{format_status(status)}"
+            reply = _automatic_reply(config, f"状态：{format_status(status)}")
             self._safe_send(reply, "status_reply")
             return None
         for prefix in config.request_prefixes():
             if text.startswith(prefix) and text[len(prefix) :].strip():
-                ack = f"{config.emoji}{config.received_prefix}{config.auto_ack_text}"
+                ack = _automatic_reply(config, config.auto_ack_text)
                 self._safe_send(ack, "auto_ack")
                 try:
                     self.store.interrupt_flag_path.write_text("", encoding="utf-8")
@@ -199,7 +207,7 @@ class WechatBridge:
             runtime["completion_submitted_at"].setdefault(key, self.clock())
             return
         if self._safe_send(
-            f"{config.emoji}{config.done_prefix}{result}",
+            _automatic_reply(config, f"{config.done_prefix}{result}"),
             "completion",
             success_action="completion_submitted",
         ):
@@ -276,8 +284,8 @@ class WechatBridge:
             )
             if key in runtime["sent_outbox"]:
                 continue
-            prefix = config.done_prefix if kind == "done" else config.received_prefix
-            if self._safe_send(f"{config.emoji}{prefix}{text}", "outbox"):
+            text = f"{config.done_prefix}{text}" if kind == "done" else text
+            if self._safe_send(_agent_reply(config, text), "outbox"):
                 _remember(runtime["sent_outbox"], key)
 
 

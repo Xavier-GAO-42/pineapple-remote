@@ -29,9 +29,10 @@ class BridgeConfig:
     emoji: str = "🍍"
     query_suffix: str = "？"
     request_suffix: str = "："
-    received_prefix: str = "收到："
+    automatic_reply_prefix: str = "[自动回复]🤖👌"
+    agent_reply_prefix: str = "[AI回复]🤖👌"
     done_prefix: str = "完成："
-    auto_ack_text: str = "AI正在处理中。"
+    auto_ack_text: str = "已接收请求，AI正在处理中。"
     check_interval: int = 5
     allowed_check_intervals: tuple[int, ...] = ALLOWED_CHECK_INTERVALS
 

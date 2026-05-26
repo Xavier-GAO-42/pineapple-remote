@@ -5,11 +5,19 @@
 ## Mechanism
 
 When a user sends `🍍：xxx`, the bridge:
-1. Sends `🍍收到：AI正在处理中。` to WeChat automatically
+1. Sends `[自动回复]🤖👌🍍:已接收请求，AI正在处理中。` to WeChat automatically
 2. Writes `interrupt.flag` in the storage directory
 3. Emits `{"type":"request","content":"xxx"}` on stdout (watch mode)
 
 ## Agent Obligation
+
+For every request event, send one concise manual acknowledgment through `outbox`
+before continuing the changed work. This is required even when the instruction is
+simple:
+
+```json
+{"id":"<run-id>-request-<n>","type":"received","text":"已记入，我会按你的要求继续处理。"}
+```
 
 Check the flag before beginning the next tool operation while control is active:
 
@@ -26,7 +34,7 @@ Treat a request event as steering for the active original task, not automaticall
 a new standalone task. Preserve the original task summary unless the user explicitly
 replaces it, and update `progress` to say that the WeChat instruction is being applied.
 Unsafe or disallowed instructions must still be declined under the host agent's usual
-approval and safety rules; a brief outbox reply can explain that result.
+approval and safety rules; the required outbox reply should explain that result.
 
 ## Fallback (Evidence Rule)
 

@@ -21,7 +21,7 @@ SKILL_DIR = Path(__file__).resolve().parents[1]
 TEMPLATE_DIR = SKILL_DIR / "assets" / "tool-template"
 DEFAULT_TOOL_HOME = Path.home() / ".pineapple" / "bridge-tool"
 PACKAGING_FILES = ("pyproject.toml", "LICENSE", "README.md")
-TOOL_VERSION = "0.3.0"
+TOOL_VERSION = "0.3.1"
 
 
 def tool_home() -> Path:

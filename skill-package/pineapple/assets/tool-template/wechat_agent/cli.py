@@ -21,7 +21,7 @@ def _read_status(path: str) -> dict[str, Any]:
     if path == "-":
         data = json.load(sys.stdin)
     else:
-        with Path(path).open("r", encoding="utf-8") as stream:
+        with Path(path).open("r", encoding="utf-8-sig") as stream:
             data = json.load(stream)
     if not isinstance(data, dict):
         raise ValueError("status JSON must contain an object")

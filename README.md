@@ -1,12 +1,12 @@
 # 菠萝 Pineapple
 > 把微信文件传输助手变成本地 AI agent 的随身遥控器。
-> 0.3.0 支持 Codex CLI / Claude Code CLI 的任务伴随模式：单次扫码，完成通知稳定发送后自动退出。
+> 0.3.1 支持 Codex CLI / Claude Code CLI 的任务伴随模式：单次扫码，回复来源清晰，完成通知稳定发送后自动退出。
 电脑上 agent 在跑任务，你可以直接用手机微信发消息：
 
 任务开始时，自动推送到文件传输助手：
 
 ```text
-🍍收到：菠萝控制已连接。
+[AI回复]🤖👌🍍:菠萝控制已连接。
 ```
 
 任务过程中：
@@ -20,13 +20,13 @@
 任务完成后，结果自动推送到文件传输助手：
 
 ```text
-🍍完成：检查完毕，修改位置与结果摘要已整理完成。
+[自动回复]🤖👌🍍:完成：检查完毕，修改位置与结果摘要已整理完成。
 ```
 
 不需要守在电脑前，不需要服务端，不读取你的其他聊天。
 
 菠萝跟随的是你刚刚交给 agent 的那一次任务：连接建立后会先发出
-`🍍收到：菠萝控制已连接。`，随后 agent 继续原任务；结果发出后，本次
+`[AI回复]🤖👌🍍:菠萝控制已连接。`，随后 agent 继续原任务；结果发出后，本次
 Python helper 在最终通知留出短暂同步时间后自动退出，不在电脑上留下等待新任务的常驻服务。每次启用
 都会打开一个新的临时网页会话，由你为这一次任务扫码登录。
 
@@ -40,22 +40,22 @@ Python helper 在最终通知留出短暂同步时间后自动退出，不在电
 
 | CLI | 安装包 |
 |-----|--------|
-| Codex CLI | [pineapple-codex-skill-0.3.0.zip](dist/pineapple-codex-skill-0.3.0.zip) |
-| Claude Code CLI | [pineapple-claude-plugin-0.3.0.zip](dist/pineapple-claude-plugin-0.3.0.zip) |
+| Codex CLI | [pineapple-codex-skill-0.3.1.zip](dist/pineapple-codex-skill-0.3.1.zip) |
+| Claude Code CLI | [pineapple-claude-plugin-0.3.1.zip](dist/pineapple-claude-plugin-0.3.1.zip) |
 
 ### 2 · 交给 agent
 
 **Codex** — 在 Codex 里说（替换路径）：
 
 ```
-请把 D:\Downloads\pineapple-codex-skill-0.3.0.zip 安装为我的 pineapple skill。
+请把 D:\Downloads\pineapple-codex-skill-0.3.1.zip 安装为我的 pineapple skill。
 安装完成后告诉我如何启用，不要启动微信页面。
 ```
 
 **Claude Code** — 在 Claude Code 里说（替换路径）：
 
 ```
-请把 D:\Downloads\pineapple-claude-plugin-0.3.0.zip 解压到 D:\Tools\pineapple-claude-plugin，
+请把 D:\Downloads\pineapple-claude-plugin-0.3.1.zip 解压到 D:\Tools\pineapple-claude-plugin，
 告诉我启动这个本地 plugin 的命令。不要启动微信页面。
 ```
 
@@ -74,13 +74,22 @@ claude --plugin-dir D:\Tools\pineapple-claude-plugin
 首次请先展示初始化计划，确认后安装依赖并打开文件传输助手网页让我登录。
 ```
 
-Agent 展示计划 → 你确认 → 安装依赖 → 打开网页 → 扫码 → 收到 `🍍收到：菠萝控制已连接。` → agent 开始执行任务。全程无需管理员权限。
+Agent 展示计划 → 你确认 → 安装依赖 → 打开网页 → 扫码 → 收到 `[AI回复]🤖👌🍍:菠萝控制已连接。` → agent 开始执行任务。全程无需管理员权限。
 
 ### 4 · 任务运行中
 
 - `🍍?` — 查进度
-- `🍍：修改要求` — 发指令，agent 立即收到并确认
+- `🍍：修改要求` — 发指令；bridge 立即自动确认，agent 随后必须回复如何执行
 - 任务完成后自动收到结果摘要；bridge 会短暂等待最终消息同步后关闭本次网页会话
+
+消息来源一眼可见：
+
+```text
+[自动回复]🤖👌🍍:状态：我正在检查项目，目前正在运行测试。
+[自动回复]🤖👌🍍:已接收请求，AI正在处理中。
+[AI回复]🤖👌🍍:已记入，我会只给最小修改方案。
+[自动回复]🤖👌🍍:完成：修改完成，测试通过。
+```
 
 > **注意**：每次任务都需要扫码一次。菠萝不后台常驻，不保留登录状态跨任务复用。
 
@@ -137,6 +146,7 @@ events = wechat_tick({
 })
 for event in events:
     if event["type"] == "request":
+        # Apply the request, then include a concise outbox acknowledgment on the next tick.
         handle_user_instruction(event["content"])
 ```
 
@@ -162,7 +172,7 @@ wechat_tick({
 })
 ```
 
-`id` 用于去重，同一 id 只发一次。`type: "received"` 前缀 `🍍收到：`，`type: "done"` 前缀 `🍍完成：`。若两个独立任务可能产生相同完成文本，在 `done` 状态加 `notification_id` 字段区分。
+`id` 用于去重，同一 id 只发一次。agent 的 `outbox` 消息使用 `[AI回复]🤖👌<emoji>:`；查询、请求的立即确认和终态通知使用 `[自动回复]🤖👌<emoji>:`。若两个独立任务可能产生相同完成文本，在 `done` 状态加 `notification_id` 字段区分。
 
 ---
 

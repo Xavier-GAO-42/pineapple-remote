@@ -21,12 +21,16 @@ Add an `outbox` array to `status.json` before the next tick:
 ## Rules
 
 - `id` is **stable and unique** across ticks — same id = already sent, skip
-- `type: "received"` → prefix `🍍收到：`
-- `type: "done"` → prefix `🍍完成：`
+- Any agent outbox item → prefix `[AI回复]🤖👌<emoji>:`
+- `type: "done"` additionally prefixes its text with `完成：`; normal completion should use terminal state
 - Keep text brief; this is a control channel, not a chat
+- Default outbox text language is Chinese unless the user explicitly requests English.
 - Every controlled task must send exactly one connected item after the page is usable:
   `{"id":"<run-id>-connected","type":"received","text":"菠萝控制已连接。"}`
 - Completion is normally sent by terminal `state: "done"` or `state: "error"`;
   do not duplicate it as an outbox item.
-- Additional outbox messages are optional and reserved for meaningful acknowledgements
-  or blockers, not routine progress. Progress remains available through `🍍?`.
+- For every request event from `🍍：内容`, one concise acknowledgment outbox item is mandatory.
+- Other additional messages are optional and reserved for blockers or major decisions, not routine progress.
+
+Before sending an outbox item, ask: “用户是否需要立即知道我已接纳、拒绝或受阻？”
+If the answer is no and there was no request event, expose it through `🍍?` status instead.

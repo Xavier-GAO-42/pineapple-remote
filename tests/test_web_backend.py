@@ -94,10 +94,10 @@ class WebDomSelectorTests(unittest.TestCase):
                 backend = PageBoundWebBackend(Path(temporary), page)
                 messages = backend.poll_messages(BridgeConfig())
                 self.assertEqual([message.text for message in messages], ["🍍?", "🍍：本地 DOM 测试"])
-                self.assertTrue(backend.send_message("🍍收到：本地发送验证。"))
+                self.assertTrue(backend.send_message("[自动回复]🤖👌🍍:状态：本地发送验证。"))
                 self.assertEqual(
                     page.locator("#chatBody .msg-text").last.inner_text(),
-                    "🍍收到：本地发送验证。",
+                    "[自动回复]🤖👌🍍:状态：本地发送验证。",
                 )
             finally:
                 browser.close()
@@ -126,7 +126,7 @@ class WebDomSelectorTests(unittest.TestCase):
                 self.assertEqual(bridge.tick({"state": "idle"}), [])
                 self.assertEqual(
                     page.locator("#chatBody .msg-text").last.inner_text(),
-                    "🍍收到：我现在空闲，正在等待任务。",
+                    "[自动回复]🤖👌🍍:状态：我现在空闲，正在等待任务。",
                 )
                 page.evaluate(
                     """() => {
@@ -139,10 +139,10 @@ class WebDomSelectorTests(unittest.TestCase):
                 self.assertEqual(bridge.tick({"state": "idle"}), [])
                 self.assertEqual(
                     page.locator("#chatBody .msg-text").last.inner_text(),
-                    "🍍收到：我现在空闲，正在等待任务。",
+                    "[自动回复]🤖👌🍍:状态：我现在空闲，正在等待任务。",
                 )
                 replies = page.locator("#chatBody .msg-text").evaluate_all(
-                    "elements => elements.map(element => element.innerText).filter(text => text.startsWith('🍍收到'))"
+                    "elements => elements.map(element => element.innerText).filter(text => text.startsWith('[自动回复]🤖👌🍍:状态：'))"
                 )
                 self.assertEqual(len(replies), 2)
             finally:

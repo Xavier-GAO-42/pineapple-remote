@@ -53,7 +53,9 @@ class BridgeScenarioTests(unittest.TestCase):
         self.backend.receive("🍍？")
         events = self.bridge.tick({"state": "idle", "task": "", "progress": "等待任务"})
         self.assertEqual(events, [])
-        self.assertEqual(self.backend.sent, ["🍍收到：我现在空闲，正在等待任务。"])
+        self.assertEqual(
+            self.backend.sent, ["[自动回复]🤖👌🍍:状态：我现在空闲，正在等待任务。"]
+        )
 
     def test_02_running_status_query(self) -> None:
         self.backend.receive("🍍？")
@@ -62,7 +64,8 @@ class BridgeScenarioTests(unittest.TestCase):
         )
         self.assertEqual(events, [])
         self.assertEqual(
-            self.backend.sent, ["🍍收到：我正在检查作业，目前正在看 main.c。"]
+            self.backend.sent,
+            ["[自动回复]🤖👌🍍:状态：我正在检查作业，目前正在看 main.c。"],
         )
 
     def test_03_user_request_is_acked_and_returned(self) -> None:
@@ -72,14 +75,18 @@ class BridgeScenarioTests(unittest.TestCase):
             events,
             [{"type": "request", "content": "帮我检查文件", "source": "wechat"}],
         )
-        self.assertEqual(self.backend.sent, ["🍍收到：AI正在处理中。"])
+        self.assertEqual(
+            self.backend.sent, ["[自动回复]🤖👌🍍:已接收请求，AI正在处理中。"]
+        )
 
     def test_04_running_intervention_has_no_bridge_semantics(self) -> None:
         self.backend.receive("🍍：不要修改源码")
         events = self.bridge.tick({"state": "running", "task": "编辑代码"})
         self.assertEqual(events[0]["content"], "不要修改源码")
         self.assertEqual(events[0]["type"], "request")
-        self.assertEqual(self.backend.sent, ["🍍收到：AI正在处理中。"])
+        self.assertEqual(
+            self.backend.sent, ["[自动回复]🤖👌🍍:已接收请求，AI正在处理中。"]
+        )
 
     def test_05_custom_second_reply_is_deduplicated(self) -> None:
         status = {
@@ -89,7 +96,7 @@ class BridgeScenarioTests(unittest.TestCase):
         }
         self.bridge.tick(status)
         self.bridge.tick(status)
-        self.assertEqual(self.backend.sent, ["🍍收到：我会只给最小修改方案。"])
+        self.assertEqual(self.backend.sent, ["[AI回复]🤖👌🍍:我会只给最小修改方案。"])
 
     def test_connected_notice_is_an_outbox_message_sent_once(self) -> None:
         status = {
@@ -106,11 +113,11 @@ class BridgeScenarioTests(unittest.TestCase):
         }
         self.bridge.tick(status)
         self.bridge.tick(status)
-        self.assertEqual(self.backend.sent, ["🍍收到：菠萝控制已连接。"])
+        self.assertEqual(self.backend.sent, ["[AI回复]🤖👌🍍:菠萝控制已连接。"])
 
     def test_06_done_sends_completion(self) -> None:
         self.bridge.tick({"state": "done", "task": "测试", "result": "测试完成"})
-        self.assertEqual(self.backend.sent, ["🍍完成：测试完成"])
+        self.assertEqual(self.backend.sent, ["[自动回复]🤖👌🍍:完成：测试完成"])
 
     def test_terminal_status_closes_task_transport_after_sending(self) -> None:
         backend = ClosingMockBackend()
@@ -119,7 +126,7 @@ class BridgeScenarioTests(unittest.TestCase):
         self.assertFalse(backend.closed)
         bridge.tick({"state": "done", "task": "测试", "result": "测试完成"})
         self.assertTrue(backend.closed)
-        self.assertEqual(backend.sent, ["🍍完成：测试完成"])
+        self.assertEqual(backend.sent, ["[自动回复]🤖👌🍍:完成：测试完成"])
 
     def test_terminal_web_settle_window_closes_only_after_delay(self) -> None:
         clock = ManualClock()
@@ -142,7 +149,7 @@ class BridgeScenarioTests(unittest.TestCase):
         clock.advance(0.1)
         bridge.tick(status)
         self.assertTrue(backend.closed)
-        self.assertEqual(backend.sent, ["🍍完成：测试完成"])
+        self.assertEqual(backend.sent, ["[自动回复]🤖👌🍍:完成：测试完成"])
         logs = (self.home / "bridge.jsonl").read_text(encoding="utf-8")
         self.assertIn('"action": "completion_submitted"', logs)
         self.assertIn('"action": "session_closed_after_settle"', logs)
@@ -157,7 +164,7 @@ class BridgeScenarioTests(unittest.TestCase):
         clock.advance(1.0)
         events = bridge.tick(status)
         self.assertEqual(events, [])
-        self.assertEqual(backend.sent, ["🍍完成：测试完成"])
+        self.assertEqual(backend.sent, ["[自动回复]🤖👌🍍:完成：测试完成"])
 
     def test_terminal_submission_does_not_send_late_outbox_items(self) -> None:
         backend = ClosingMockBackend(terminal_settle_seconds=3.0)
@@ -172,7 +179,7 @@ class BridgeScenarioTests(unittest.TestCase):
                 ],
             }
         )
-        self.assertEqual(backend.sent, ["🍍完成：测试完成"])
+        self.assertEqual(backend.sent, ["[自动回复]🤖👌🍍:完成：测试完成"])
 
     def test_terminal_send_failure_does_not_close_and_can_retry(self) -> None:
         backend = RejectingClosingBackend(terminal_settle_seconds=3.0)
@@ -187,7 +194,7 @@ class BridgeScenarioTests(unittest.TestCase):
         status = {"state": "done", "task": "测试", "result": "测试完成"}
         self.bridge.tick(status)
         self.bridge.tick(status)
-        self.assertEqual(self.backend.sent, ["🍍完成：测试完成"])
+        self.assertEqual(self.backend.sent, ["[自动回复]🤖👌🍍:完成：测试完成"])
         self.assertTrue(self.bridge.terminal_notification_sent(status))
 
     def test_08_error_sends_deduplicated_completion(self) -> None:
@@ -199,7 +206,8 @@ class BridgeScenarioTests(unittest.TestCase):
         self.bridge.tick(status)
         self.bridge.tick(status)
         self.assertEqual(
-            self.backend.sent, ["🍍完成：任务未完成，原因：没有找到目标文件"]
+            self.backend.sent,
+            ["[自动回复]🤖👌🍍:完成：任务未完成，原因：没有找到目标文件"],
         )
 
     def test_09_plain_message_is_ignored(self) -> None:
@@ -215,7 +223,9 @@ class BridgeScenarioTests(unittest.TestCase):
             {"state": "idle", "config": {"emoji": "🛰️", "check_interval": 3}}
         )
         self.assertEqual(events, [])
-        self.assertEqual(self.backend.sent, ["🛰️收到：我现在空闲，正在等待任务。"])
+        self.assertEqual(
+            self.backend.sent, ["[自动回复]🤖👌🛰️:状态：我现在空闲，正在等待任务。"]
+        )
         config = json.loads((self.home / "config.json").read_text(encoding="utf-8"))
         self.assertEqual(config["emoji"], "🛰️")
         self.assertEqual(config["check_interval"], 3)
@@ -233,7 +243,9 @@ class BridgeScenarioTests(unittest.TestCase):
         second = self.bridge.tick({"state": "running"})
         self.assertEqual(len(first), 1)
         self.assertEqual(second, [])
-        self.assertEqual(self.backend.sent, ["🍍收到：AI正在处理中。"])
+        self.assertEqual(
+            self.backend.sent, ["[自动回复]🤖👌🍍:已接收请求，AI正在处理中。"]
+        )
 
     def test_unavailable_backend_keeps_state_and_returns_empty(self) -> None:
         bridge = WechatBridge(NullBackend(), self.home)
@@ -255,7 +267,10 @@ class BridgeScenarioTests(unittest.TestCase):
         )
         self.assertEqual(
             self.backend.sent,
-            ["🍍收到：我现在空闲，正在等待任务。", "🍍收到：AI正在处理中。"],
+            [
+                "[自动回复]🤖👌🍍:状态：我现在空闲，正在等待任务。",
+                "[自动回复]🤖👌🍍:已接收请求，AI正在处理中。",
+            ],
         )
 
     def test_package_exports_only_the_agent_tick_operation(self) -> None:

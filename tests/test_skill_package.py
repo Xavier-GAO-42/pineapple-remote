@@ -46,11 +46,13 @@ class SkillPackageTests(unittest.TestCase):
         self.assertIn("delivery-settle window", startup)
         self.assertIn("one UTF-8 `status.json` file", startup)
         self.assertIn("Do not invoke another standalone", startup)
+        self.assertIn("For every request event", startup)
         self.assertIn("new QR login", startup)
         self.assertNotIn("正在等待微信指令", startup)
         self.assertIn("--dangerously-bypass-approvals-and-sandbox", startup)
         self.assertIn("--permission-mode bypassPermissions", startup)
         self.assertIn("JsonStore().interrupt_flag_path", interrupt)
+        self.assertIn("send one concise manual acknowledgment", interrupt)
         status_rule = (SKILL / "rules" / "status-format.md").read_text(encoding="utf-8")
         self.assertIn("Do not use it because the bridge is open", status_rule)
 
@@ -122,7 +124,7 @@ class SkillPackageTests(unittest.TestCase):
             )
             payload = json.loads(result.stdout)
             self.assertEqual(payload["status"], "upgrade_needed")
-            self.assertEqual(payload["latest_tool_version"], "0.3.0")
+            self.assertEqual(payload["latest_tool_version"], "0.3.1")
 
     def test_plan_is_explicit_about_user_level_writes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -186,7 +188,7 @@ class SkillPackageTests(unittest.TestCase):
             expected_python.parent.mkdir(parents=True)
             expected_python.write_text("", encoding="utf-8")
             (target / "pineapple-install.json").write_text(
-                '{"tool_version":"0.3.0"}', encoding="utf-8"
+                '{"tool_version":"0.3.1"}', encoding="utf-8"
             )
             env = dict(os.environ)
             env["PINEAPPLE_TOOL_HOME"] = str(target)

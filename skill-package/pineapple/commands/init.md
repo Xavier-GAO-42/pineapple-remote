@@ -98,14 +98,23 @@ Start the following as an agent-owned active helper process and keep it running 
 <bridge-python> -m wechat_agent.wechat_tick --backend web --watch --status-json "<status-json>"
 ```
 
-The command opens a fresh visible official File Transfer Assistant webpage. Ask the user to scan its QR code for this task. Once usable, the stable connected outbox sends exactly one `🍍收到：菠萝控制已连接。`. Do not wait for a query or a new WeChat task before executing the original request. Do not close this helper before the task finishes.
+The command opens a fresh visible official File Transfer Assistant webpage. Ask the user to scan its QR code for this task. Once usable, the stable connected outbox sends exactly one `[AI回复]🤖👌🍍:菠萝控制已连接。`. Do not wait for a query or a new WeChat task before executing the original request. Do not close this helper before the task finishes.
+Use Chinese for connected/progress/completion/outbox text by default unless the user explicitly asks for English.
 
 ## 4. Use During The Task
 
 - Update the same status JSON immediately after startup, before substantial work phases, after meaningful milestones, when applying a WeChat intervention, and before the final response; follow [../rules/status-format.md](../rules/status-format.md).
 - Before tool calls while control is active, follow [../rules/interrupt.md](../rules/interrupt.md).
 - For proactive replies, follow [../rules/outbox.md](../rules/outbox.md).
+- For every request event from `🍍：...`, update progress, apply it to the original task, and post one concise AI outbox acknowledgment. This is required, including for a language request such as “换成中文”.
 - At task end, before giving the final host response, write a `done` or `error` status to the same file with a concise `result` and stable `notification_id`.
-- Wait for the watch helper to exit. It submits `🍍完成：...`, holds the webpage for an approximately 3-second delivery-settle window, then closes this task's session and exits.
+- Wait for the watch helper to exit. It submits `[自动回复]🤖👌🍍:完成：...`, holds the webpage for an approximately 3-second delivery-settle window, then closes this task's session and exits.
 - If final submission is unavailable, the helper stays alive to retry. Do not report that WeChat was notified until the helper exits normally.
 - A later controlled task starts fresh and asks for a new QR login.
+
+## Before Final Response
+
+- Confirm that only the original task status file was updated.
+- Confirm that each received request event has an AI outbox acknowledgment.
+- Confirm that terminal state and stable `notification_id` were written.
+- Confirm that the watch helper exited normally after the terminal message settled.
