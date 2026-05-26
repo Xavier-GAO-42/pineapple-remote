@@ -25,7 +25,13 @@ Pineapple is a companion channel for one already-running user task, not a waitin
 service. When a task enables control, continue that original task immediately after
 startup. Send exactly one connected outbox notification (`菠萝控制已连接。`), keep useful
 status current, send the terminal result, and let the helper close its page and exit
-after delivery. Each controlled task uses a fresh QR login; do not promise reuse.
+after a short delivery-settle window. Each controlled task uses a fresh QR login; do
+not promise reuse.
+
+For CLI hosts, one controlled task has exactly one status file and exactly one watch
+helper. The host edits that same status file; it must not run a second bridge tick for
+the task. Before answering the user at task end, write terminal status and wait for
+the watch helper to exit after its final notification settle window.
 
 ## Active Task Rules
 
@@ -41,7 +47,7 @@ Load these whenever control is active:
 
 - `🍍?` / `🍍？` → status reply only; no request event
 - `🍍:内容` / `🍍：内容` → steering for the active task; read [rules/interrupt.md](./rules/interrupt.md)
-- Task end → `🍍完成：<summary>` sent automatically when `state` is `done` or `error`, then the task helper exits
+- Task end → `🍍完成：<summary>` is submitted automatically when `state` is `done` or `error`; the helper waits briefly for page delivery, then exits
 
 ## Safety
 

@@ -69,8 +69,12 @@ def main(argv: list[str] | None = None) -> int:
                     status = _read_status(args.status_json)
                     events = bridge.tick(status, args.check_interval)
                     print(json.dumps(events, ensure_ascii=False), flush=True)
-                    if bridge.terminal_notification_sent(status):
+                    if bridge.terminal_notification_settled(status):
                         return 0
+                    terminal_remaining = bridge.terminal_settle_remaining(status)
+                    if terminal_remaining is not None:
+                        time.sleep(terminal_remaining)
+                        continue
                     config = BridgeConfig.from_mapping(
                         bridge.store.load_json(bridge.store.config_path, {})
                     )

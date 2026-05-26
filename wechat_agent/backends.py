@@ -115,6 +115,7 @@ class WebFileHelperBackend:
 
     always_poll = False
     discard_existing_on_first_poll = True
+    terminal_settle_seconds = 3.0
     url = "https://filehelper.weixin.qq.com/"
     input_selectors = (
         "textarea.chat-panel__input-container",

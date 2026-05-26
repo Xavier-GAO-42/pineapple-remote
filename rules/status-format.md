@@ -40,6 +40,8 @@ not sent an optional WeChat instruction.
 
 Update status at user-visible milestones rather than every trivial read: connection
 startup, a substantial phase beginning or ending, application of steering, and task end.
+In CLI watch mode, every update for a task goes to the one status file passed to its
+watch helper. Never publish terminal status through a second tick process.
 
 ## Completion Example
 

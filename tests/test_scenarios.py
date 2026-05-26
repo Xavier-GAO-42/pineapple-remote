@@ -14,12 +14,29 @@ from wechat_agent.backends import MockBackend, NullBackend
 
 
 class ClosingMockBackend(MockBackend):
-    def __init__(self) -> None:
+    def __init__(self, terminal_settle_seconds: float = 0.0) -> None:
         super().__init__()
         self.closed = False
+        self.terminal_settle_seconds = terminal_settle_seconds
 
     def close(self) -> None:
         self.closed = True
+
+
+class ManualClock:
+    def __init__(self) -> None:
+        self.now = 100.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+class RejectingClosingBackend(ClosingMockBackend):
+    def send_message(self, text: str) -> bool:
+        return False
 
 
 class BridgeScenarioTests(unittest.TestCase):
@@ -103,6 +120,68 @@ class BridgeScenarioTests(unittest.TestCase):
         bridge.tick({"state": "done", "task": "测试", "result": "测试完成"})
         self.assertTrue(backend.closed)
         self.assertEqual(backend.sent, ["🍍完成：测试完成"])
+
+    def test_terminal_web_settle_window_closes_only_after_delay(self) -> None:
+        clock = ManualClock()
+        backend = ClosingMockBackend(terminal_settle_seconds=3.0)
+        bridge = WechatBridge(backend, self.home, clock=clock)
+        status = {
+            "state": "done",
+            "task": "测试",
+            "result": "测试完成",
+            "notification_id": "delayed-terminal",
+        }
+        bridge.tick(status)
+        self.assertFalse(backend.closed)
+        self.assertTrue(bridge.terminal_notification_sent(status))
+        self.assertFalse(bridge.terminal_notification_settled(status))
+        self.assertEqual(bridge.terminal_settle_remaining(status), 3.0)
+        clock.advance(2.9)
+        bridge.tick(status)
+        self.assertFalse(backend.closed)
+        clock.advance(0.1)
+        bridge.tick(status)
+        self.assertTrue(backend.closed)
+        self.assertEqual(backend.sent, ["🍍完成：测试完成"])
+        logs = (self.home / "bridge.jsonl").read_text(encoding="utf-8")
+        self.assertIn('"action": "completion_submitted"', logs)
+        self.assertIn('"action": "session_closed_after_settle"', logs)
+
+    def test_terminal_settle_window_does_not_accept_new_requests(self) -> None:
+        clock = ManualClock()
+        backend = ClosingMockBackend(terminal_settle_seconds=3.0)
+        bridge = WechatBridge(backend, self.home, clock=clock)
+        status = {"state": "done", "task": "测试", "result": "测试完成"}
+        bridge.tick(status)
+        backend.receive("🍍：完成后不应接收", "late-steering")
+        clock.advance(1.0)
+        events = bridge.tick(status)
+        self.assertEqual(events, [])
+        self.assertEqual(backend.sent, ["🍍完成：测试完成"])
+
+    def test_terminal_submission_does_not_send_late_outbox_items(self) -> None:
+        backend = ClosingMockBackend(terminal_settle_seconds=3.0)
+        bridge = WechatBridge(backend, self.home, clock=ManualClock())
+        bridge.tick(
+            {
+                "state": "done",
+                "task": "测试",
+                "result": "测试完成",
+                "outbox": [
+                    {"id": "too-late", "type": "received", "text": "不应在结束后补发"}
+                ],
+            }
+        )
+        self.assertEqual(backend.sent, ["🍍完成：测试完成"])
+
+    def test_terminal_send_failure_does_not_close_and_can_retry(self) -> None:
+        backend = RejectingClosingBackend(terminal_settle_seconds=3.0)
+        bridge = WechatBridge(backend, self.home)
+        status = {"state": "done", "task": "测试", "result": "测试完成"}
+        bridge.tick(status)
+        bridge.tick(status)
+        self.assertFalse(backend.closed)
+        self.assertFalse(bridge.terminal_notification_sent(status))
 
     def test_07_done_notification_is_deduplicated(self) -> None:
         status = {"state": "done", "task": "测试", "result": "测试完成"}

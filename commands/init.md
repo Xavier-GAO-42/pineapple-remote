@@ -12,6 +12,18 @@ This is the single initialization/startup flow for both first use and later sess
 
 Pineapple is not the task itself. It is a temporary control channel accompanying the user's original task.
 
+## Ownership Invariant
+
+For each controlled task, use exactly:
+
+- one run id;
+- one UTF-8 `status.json` file;
+- one `--watch` helper launched with that same status file.
+
+After the helper starts, update only that same file. Do not invoke another standalone
+`wechat_tick()` process for progress or completion, and do not switch to a different
+status file. The watch helper owns all WeChat reads and writes for this task.
+
 ## 1. Explain Permissions
 
 Before first-time writes, tell the user exactly what may happen after approval:
@@ -93,4 +105,7 @@ The command opens a fresh visible official File Transfer Assistant webpage. Ask 
 - Update the same status JSON immediately after startup, before substantial work phases, after meaningful milestones, when applying a WeChat intervention, and before the final response; follow [../rules/status-format.md](../rules/status-format.md).
 - Before tool calls while control is active, follow [../rules/interrupt.md](../rules/interrupt.md).
 - For proactive replies, follow [../rules/outbox.md](../rules/outbox.md).
-- At task end write a `done` or `error` status with a concise `result` and stable `notification_id`. The helper sends `🍍完成：...` and automatically exits after the notification succeeds, closing this task's webpage session. A later controlled task starts fresh and asks for a new QR login. If sending is unavailable, it stays alive to retry.
+- At task end, before giving the final host response, write a `done` or `error` status to the same file with a concise `result` and stable `notification_id`.
+- Wait for the watch helper to exit. It submits `🍍完成：...`, holds the webpage for an approximately 3-second delivery-settle window, then closes this task's session and exits.
+- If final submission is unavailable, the helper stays alive to retry. Do not report that WeChat was notified until the helper exits normally.
+- A later controlled task starts fresh and asks for a new QR login.

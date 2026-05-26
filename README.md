@@ -1,6 +1,6 @@
 # 菠萝 Pineapple
 > 把微信文件传输助手变成本地 AI agent 的随身遥控器。
-> 0.2.2支持在独立 CLI 进程（Codex CLI / Claude Code CLI）中运行，暂不支持依赖独立的 Playwright 浏览器窗口。
+> 0.3.0 支持 Codex CLI / Claude Code CLI 的任务伴随模式：单次扫码，完成通知稳定发送后自动退出。
 电脑上 agent 在跑任务，你可以直接用手机微信发消息：
 
 任务开始时，自动推送到文件传输助手：
@@ -27,7 +27,7 @@
 
 菠萝跟随的是你刚刚交给 agent 的那一次任务：连接建立后会先发出
 `🍍收到：菠萝控制已连接。`，随后 agent 继续原任务；结果发出后，本次
-Python helper 自动退出，不在电脑上留下等待新任务的常驻服务。每次启用
+Python helper 在最终通知留出短暂同步时间后自动退出，不在电脑上留下等待新任务的常驻服务。每次启用
 都会打开一个新的临时网页会话，由你为这一次任务扫码登录。
 
 ---
@@ -40,22 +40,22 @@ Python helper 自动退出，不在电脑上留下等待新任务的常驻服务
 
 | CLI | 安装包 |
 |-----|--------|
-| Codex CLI | [pineapple-codex-skill-0.2.2.zip](dist/pineapple-codex-skill-0.2.2.zip) |
-| Claude Code CLI | [pineapple-claude-plugin-0.2.2.zip](dist/pineapple-claude-plugin-0.2.2.zip) |
+| Codex CLI | [pineapple-codex-skill-0.3.0.zip](dist/pineapple-codex-skill-0.3.0.zip) |
+| Claude Code CLI | [pineapple-claude-plugin-0.3.0.zip](dist/pineapple-claude-plugin-0.3.0.zip) |
 
 ### 2 · 交给 agent
 
 **Codex** — 在 Codex 里说（替换路径）：
 
 ```
-请把 D:\Downloads\pineapple-codex-skill-0.2.2.zip 安装为我的 pineapple skill。
+请把 D:\Downloads\pineapple-codex-skill-0.3.0.zip 安装为我的 pineapple skill。
 安装完成后告诉我如何启用，不要启动微信页面。
 ```
 
 **Claude Code** — 在 Claude Code 里说（替换路径）：
 
 ```
-请把 D:\Downloads\pineapple-claude-plugin-0.2.2.zip 解压到 D:\Tools\pineapple-claude-plugin，
+请把 D:\Downloads\pineapple-claude-plugin-0.3.0.zip 解压到 D:\Tools\pineapple-claude-plugin，
 告诉我启动这个本地 plugin 的命令。不要启动微信页面。
 ```
 
@@ -80,7 +80,7 @@ Agent 展示计划 → 你确认 → 安装依赖 → 打开网页 → 扫码 �
 
 - `🍍?` — 查进度
 - `🍍：修改要求` — 发指令，agent 立即收到并确认
-- 任务完成后自动收到结果摘要，本次网页会话随即关闭
+- 任务完成后自动收到结果摘要；bridge 会短暂等待最终消息同步后关闭本次网页会话
 
 > **注意**：每次任务都需要扫码一次。菠萝不后台常驻，不保留登录状态跨任务复用。
 
@@ -103,7 +103,7 @@ Agent 展示计划 → 你确认 → 安装依赖 → 打开网页 → 扫码 �
 
 菠萝由单包 `wechat-agent-bridge` 驱动。Agent 在任务循环中周期性调用 `wechat_tick(status)`，该函数负责轮询微信页面、回复查询、发送主动消息和任务通知。
 
-Codex / Claude Code 宿主通过 CLI watch 模式运行同一逻辑：bridge 作为前台进程持有页面，从标准输出逐行输出 JSON 事件，agent 写入 `status.json` 更新状态。任务完成后，bridge 发送通知并退出，页面会话随之关闭。
+Codex / Claude Code 宿主通过 CLI watch 模式运行同一逻辑：一个任务只启动一个 bridge helper，并只更新启动时交给它的那一份 `status.json`。任务完成时，agent 将 `done/error` 写入该文件并等待 helper 退出；bridge 提交最终通知，留出短暂同步时间后再关闭网页会话。
 
 项目采用 **MIT License**，可审阅、修改和开源分发。
 
@@ -203,7 +203,7 @@ py -m wechat_agent.wechat_tick --backend file-mock --storage-dir .bridge-test --
 Get-Content .bridge-test\mock_outbox.jsonl
 ```
 
-Bridge 在 `state` 变为 `done` 或 `error` 且通知发送成功后自动退出。`--backend web` 一次性退出模式会被拒绝（关闭页面后无法可靠保留会话）。
+Bridge 在 `state` 变为 `done` 或 `error` 后提交通知；网页后端继续保持页面约 3 秒以完成最终同步，再自动退出。若发送失败则继续重试。`--backend web` 一次性退出模式会被拒绝。
 
 人工冒烟验证：
 

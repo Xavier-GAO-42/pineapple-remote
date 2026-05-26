@@ -37,7 +37,8 @@ These hosts cannot import a Python module into their own conversation loop. Main
 foreground helper owned by the active task:
 
 1. Preserve the user's original main task; Pineapple is only its control channel.
-2. Write UTF-8 status JSON in `~/.pineapple/sessions/<session-name>/status.json`.
+2. Allocate one run id and one UTF-8 status JSON file in
+   `~/.pineapple/sessions/<run-id>/status.json`.
    The first running status includes one stable outbox item with text
    `菠萝控制已连接。`.
 3. Start:
@@ -50,11 +51,13 @@ foreground helper owned by the active task:
    official webpage for this task and keep it open until completion.
 5. Immediately resume the original task after starting control; never wait for an
    optional WeChat instruction.
-6. Update the one status JSON object at meaningful milestones while work proceeds.
+6. Update only that one status JSON object at meaningful milestones while work proceeds.
+   Do not launch a second tick or alternate status file while this helper owns the task.
 7. Consume JSON events printed by the helper; treat `{"type":"request"}` as steering
    for the active original task unless its content explicitly replaces that task.
-8. Write terminal `done` or `error` status at task end. After the completion message
-   is delivered, the helper closes this page session and exits automatically; an
+8. Before the host's final reply, write terminal `done` or `error` status to that same
+   file, then wait for the helper to exit. It submits the completion message, waits
+   about 3 seconds for webpage delivery to settle, closes this page session, and exits. An
    unavailable send is retried.
 
 This is the CLI adaptation of the single `wechat_tick(status)` contract; it is not a

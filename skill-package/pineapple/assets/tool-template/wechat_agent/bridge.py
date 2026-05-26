@@ -73,6 +73,7 @@ class WechatBridge:
             {
                 "handled_messages": [],
                 "sent_completions": [],
+                "completion_submitted_at": {},
                 "sent_outbox": [],
                 "last_check_at": 0.0,
                 "transport_initialized": False,
@@ -82,6 +83,7 @@ class WechatBridge:
         )
         runtime.setdefault("handled_messages", [])
         runtime.setdefault("sent_completions", [])
+        runtime.setdefault("completion_submitted_at", {})
         runtime.setdefault("sent_outbox", [])
         runtime.setdefault("last_check_at", 0.0)
         runtime.setdefault("transport_initialized", False)
@@ -101,13 +103,15 @@ class WechatBridge:
 
         events: list[dict[str, str]] = []
         self._send_lifecycle_notification(status_dict, config, runtime)
-        self._send_outbox(status_dict, config, runtime)
+        terminal_submitted = self._terminal_submitted(status_dict, runtime)
+        if not terminal_submitted:
+            self._send_outbox(status_dict, config, runtime)
 
         due = (
             getattr(self.backend, "always_poll", False)
             or self.clock() - float(runtime["last_check_at"]) >= config.check_interval
         )
-        if due:
+        if due and not terminal_submitted:
             try:
                 messages = self.backend.poll_messages(config)
                 runtime["last_backend_error"] = None
@@ -138,13 +142,14 @@ class WechatBridge:
                 self.store.log("backend_error", error=str(exc))
 
         self.store.save_json(self.store.runtime_path, runtime)
-        if self.terminal_notification_sent(status_dict):
+        if self.terminal_notification_settled(status_dict):
             close = getattr(self.backend, "close", None)
             if callable(close):
                 close()
+            self.store.log("session_closed_after_settle")
         return events
 
-    def _safe_send(self, text: str, action: str) -> bool:
+    def _safe_send(self, text: str, action: str, success_action: str = "sent") -> bool:
         try:
             sent = self.backend.send_message(text)
         except BackendUnavailable as exc:
@@ -154,7 +159,7 @@ class WechatBridge:
             self.store.log("send_error", message_type=action, error=str(exc))
             return False
         if sent:
-            self.store.log("sent", message_type=action, text=text)
+            self.store.log(success_action, message_type=action, text=text)
             return True
         return False
 
@@ -191,17 +196,49 @@ class WechatBridge:
             return
         key, result = completion
         if key in runtime["sent_completions"]:
+            runtime["completion_submitted_at"].setdefault(key, self.clock())
             return
-        if self._safe_send(f"{config.emoji}{config.done_prefix}{result}", "completion"):
+        if self._safe_send(
+            f"{config.emoji}{config.done_prefix}{result}",
+            "completion",
+            success_action="completion_submitted",
+        ):
             _remember(runtime["sent_completions"], key)
+            runtime["completion_submitted_at"][key] = self.clock()
 
     def terminal_notification_sent(self, status: Mapping[str, Any] | None) -> bool:
-        """Return true once a terminal status has had its completion notification sent."""
+        """Return true once a terminal status has been submitted to the page UI."""
         completion = self._completion(dict(status or {}))
         if completion is None:
             return False
         runtime = self.store.load_json(self.store.runtime_path, {})
         return completion[0] in runtime.get("sent_completions", [])
+
+    def terminal_notification_settled(self, status: Mapping[str, Any] | None) -> bool:
+        """Return true once a submitted terminal message has had time to synchronize."""
+        remaining = self.terminal_settle_remaining(status)
+        return remaining is not None and remaining <= 0
+
+    def terminal_settle_remaining(self, status: Mapping[str, Any] | None) -> float | None:
+        """Return seconds until terminal page delivery may be closed, if submitted."""
+        completion = self._completion(dict(status or {}))
+        if completion is None:
+            return None
+        runtime = self.store.load_json(self.store.runtime_path, {})
+        key = completion[0]
+        if key not in runtime.get("sent_completions", []):
+            return None
+        submitted_at = runtime.get("completion_submitted_at", {}).get(key)
+        if submitted_at is None:
+            return None
+        settle_seconds = float(getattr(self.backend, "terminal_settle_seconds", 0.0))
+        return max(0.0, settle_seconds - (self.clock() - float(submitted_at)))
+
+    def _terminal_submitted(
+        self, status: Mapping[str, Any], runtime: Mapping[str, Any]
+    ) -> bool:
+        completion = self._completion(status)
+        return completion is not None and completion[0] in runtime["sent_completions"]
 
     @staticmethod
     def _completion(status: Mapping[str, Any]) -> tuple[str, str] | None:

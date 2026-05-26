@@ -1,6 +1,6 @@
 {
   "name": "pineapple",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Pineapple: use WeChat File Transfer Assistant to monitor and intervene in an active AI agent.",
   "author": {
     "name": "GALAXY x Codex"
