@@ -1,6 +1,6 @@
 # 菠萝 Pineapple
 > 把微信文件传输助手变成本地 AI agent 的随身遥控器。
-
+> 0.2.2支持在独立 CLI 进程（Codex CLI / Claude Code CLI）中运行，暂不支持依赖独立的 Playwright 浏览器窗口。
 电脑上 agent 在跑任务，你可以直接用手机微信发消息：
 
 任务开始时，自动推送到文件传输助手：
