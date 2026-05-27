@@ -344,6 +344,12 @@ class WechatBridge:
             key = str(message["id"])
             if key in runtime["sent_outbox"]:
                 continue
+            for _pfx in (f"{config.emoji}{config.agent_reply_prefix}",
+                         f"{config.emoji}{config.automatic_reply_prefix}",
+                         config.emoji):
+                if text.startswith(_pfx):
+                    text = text[len(_pfx):]
+                    break
             text = f"{config.done_prefix}{text}" if kind == "done" else text
             if self._safe_send(_agent_reply(config, text), "outbox"):
                 _remember(runtime["sent_outbox"], key)
