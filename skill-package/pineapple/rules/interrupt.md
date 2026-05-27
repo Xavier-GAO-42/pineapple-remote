@@ -15,14 +15,32 @@ When a user sends `🍍：xxx`, the bridge:
 At each runtime checkpoint, read `requests.jsonl` and ask:
 
 1. “Which request ids do not yet have an `ack-<request-id>` outbox item?”
-2. “How does each unread request change the original task?”
+2. “What exactly does each unread request's `content` say?”
+3. “How does that content change the original task, or what answer does it require?”
 
-For every unread request, apply or decline it, update progress, and send exactly one
-acknowledgment before continuing affected work:
+The request text field is exactly `content`, not `text`, `message`, or the flag file.
+Do not write a PowerShell/Python loop that invents AI reply bodies from placeholders
+or phases. The agent must read `content`, decide the response, then write the outbox item.
+
+For every unread request, interpret and handle it, update progress, and send exactly
+one useful AI reply before continuing affected work. The `ack-<request-id>` id means
+"handled once"; it does not mean "send a generic receipt."
 
 ```json
-{"id":"ack-<request-id>","type":"received","text":"已记入，我会按你的要求继续处理。"}
+{"id":"ack-<request-id>","type":"received","text":"<answer, applied-change summary, or refusal>"}
 ```
+
+Choose the reply from the request's intent:
+
+- A question requires the answer in the AI reply.
+- A steering instruction requires a concise statement of what will change.
+- A stop/cancel instruction requires a reply and prompt terminal handling.
+- A disallowed request requires a refusal with a brief reason.
+- Use "已记录" only if the user explicitly asks to record something.
+
+Ask before sending: "Does this reply satisfy the user's instruction, or only confirm
+that I read it?" A receipt-only reply is not handled. Terminal delivery is held until
+a reply with stable `ack-<request-id>` has been sent.
 
 Treat a request event as steering for the active original task, not automatically as
 a new standalone task. Preserve the original task summary unless the user explicitly
@@ -34,3 +52,7 @@ approval and safety rules; the required outbox reply should explain that result.
 
 If `requests.jsonl` is absent, no persisted request is pending. If storage cannot be
 read, record that control input is unavailable and continue the main task safely.
+
+The normal layout is `<run-id>/status.json` beside `<run-id>/requests.jsonl`. If a
+named status file was incorrectly created in a shared directory, read its isolated
+`<status-stem>.requests.jsonl` mailbox instead.

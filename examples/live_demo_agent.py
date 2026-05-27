@@ -35,6 +35,7 @@ def main() -> int:
 
     try:
         running_status = {
+            "run_id": run_id,
             "state": "running",
             "task": "运行菠萝伴随主任务演示",
             "progress": "菠萝控制已连接，正在验证运行中状态",
@@ -67,6 +68,7 @@ def main() -> int:
             time.sleep(interval)
 
         done_status = {
+            "run_id": run_id,
             "state": "done",
             "task": "运行菠萝伴随主任务演示",
             "progress": "已完成",

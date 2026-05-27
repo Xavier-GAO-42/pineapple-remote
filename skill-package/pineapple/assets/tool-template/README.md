@@ -1,6 +1,6 @@
 # 菠萝 Pineapple
 > 把微信文件传输助手变成本地 AI agent 的随身遥控器。
-> 0.3.2 支持 Codex CLI / Claude Code CLI 的任务伴随模式：单次扫码，干预持久可读，完成通知稳定发送后自动退出。
+> 0.3.4 支持 Codex CLI / Claude Code CLI 的任务伴随模式：单次扫码，干预持久可读，完成通知稳定发送后自动退出。
 电脑上 agent 在跑任务，你可以直接用手机微信发消息：
 
 任务开始时，自动推送到文件传输助手：
@@ -40,22 +40,22 @@ Python helper 在最终通知留出短暂同步时间后自动退出，不在电
 
 | CLI | 安装包 |
 |-----|--------|
-| Codex CLI | [pineapple-codex-skill-0.3.2.zip](dist/pineapple-codex-skill-0.3.2.zip) |
-| Claude Code CLI | [pineapple-claude-plugin-0.3.2.zip](dist/pineapple-claude-plugin-0.3.2.zip) |
+| Codex CLI | [pineapple-codex-skill-0.3.4.zip](dist/pineapple-codex-skill-0.3.4.zip) |
+| Claude Code CLI | [pineapple-claude-plugin-0.3.4.zip](dist/pineapple-claude-plugin-0.3.4.zip) |
 
 ### 2 · 交给 agent
 
 **Codex** — 在 Codex 里说（替换路径）：
 
 ```
-请把 D:\Downloads\pineapple-codex-skill-0.3.2.zip 安装为我的 pineapple skill。
+请把 D:\Downloads\pineapple-codex-skill-0.3.4.zip 安装为我的 pineapple skill。
 安装完成后告诉我如何启用，不要启动微信页面。
 ```
 
 **Claude Code** — 在 Claude Code 里说（替换路径）：
 
 ```
-请把 D:\Downloads\pineapple-claude-plugin-0.3.2.zip 解压到 D:\Tools\pineapple-claude-plugin，
+请把 D:\Downloads\pineapple-claude-plugin-0.3.4.zip 解压到 D:\Tools\pineapple-claude-plugin，
 告诉我启动这个本地 plugin 的命令。不要启动微信页面。
 ```
 
@@ -112,7 +112,7 @@ Agent 展示计划 → 你确认 → 安装依赖 → 打开网页 → 扫码 �
 
 菠萝由单包 `wechat-agent-bridge` 驱动。Agent 在任务循环中周期性调用 `wechat_tick(status)`，该函数负责轮询微信页面、回复查询、发送主动消息和任务通知。
 
-Codex / Claude Code 宿主通过 CLI watch 模式运行同一逻辑：一个任务只启动一个 bridge helper，并只更新启动时交给它的那一份 `status.json`。bridge 把干预请求追加到同目录的 `requests.jsonl`，agent 在任务 checkpoint 读取并确认。每份 `status.json` 自动拥有独立的运行态与网页 profile；若误启第二个 helper，CLI 会直接拒绝，避免轮询状态互相覆盖而漏读消息。任务完成时，agent 将 `done/error` 写入状态文件并等待 helper 退出；bridge 提交最终通知，留出短暂同步时间后再关闭网页会话。
+Codex / Claude Code 宿主通过 CLI watch 模式运行同一逻辑：一个任务生成一个新的 `run_id`、独立目录与一份 `status.json`，只启动一个 bridge helper。bridge 把干预请求追加到本轮 `requests.jsonl`，agent 在每个长操作结束后的 checkpoint 读取并用 AI 消息确认；收到但尚未确认的请求会阻止终态通知和退出。若 agent 错把命名状态文件放入共享目录，CLI 也会自动使用同名隔离 mailbox。尚未因扫码完成而送达的连接消息由 bridge 持久重试，不会因下一次状态更新丢失。若误启第二个 helper，CLI 会直接拒绝。长任务由 agent 逐步推进，不应交给一次多轮阻塞脚本。任务完成时，agent 将 `done/error` 写入状态文件并等待 helper 退出；bridge 提交最终通知，留出短暂同步时间后再关闭网页会话。
 
 项目采用 **MIT License**，可审阅、修改和开源分发。
 

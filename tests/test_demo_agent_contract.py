@@ -16,6 +16,7 @@ class DemoAgentContractTests(unittest.TestCase):
         self.assertIn("wechat_tick", source)
         self.assertIn('"state": "running"', source)
         self.assertIn('"state": "done"', source)
+        self.assertIn('"run_id": run_id', source)
         self.assertIn("菠萝控制已连接。", source)
         self.assertIn('f"ack-{event[\'id\']}"', source)
         self.assertIn("🍍？", source)

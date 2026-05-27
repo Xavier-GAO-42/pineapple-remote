@@ -30,6 +30,13 @@ def _read_status(path: str) -> dict[str, Any]:
     return data
 
 
+def _requests_path(path: str) -> Path:
+    status_path = Path(path).resolve()
+    if status_path.name == "status.json":
+        return status_path.parent / "requests.jsonl"
+    return status_path.with_name(f"{status_path.stem}.requests.jsonl")
+
+
 def _append_requests(path: str, events: list[dict[str, str]]) -> None:
     """Persist watch-mode request events next to the task status file."""
     if path == "-":
@@ -37,7 +44,7 @@ def _append_requests(path: str, events: list[dict[str, str]]) -> None:
     request_events = [event for event in events if event.get("type") == "request"]
     if not request_events:
         return
-    mailbox_path = Path(path).resolve().parent / "requests.jsonl"
+    mailbox_path = _requests_path(path)
     known_ids: set[str] = set()
     try:
         lines = mailbox_path.read_text(encoding="utf-8").splitlines()
@@ -113,6 +120,27 @@ def _acquire_watch_lock(runtime_dir: Path | None) -> Path | None:
     raise ValueError("could not acquire Pineapple watch helper lock")
 
 
+def _prepare_watch_run(status: dict[str, Any], status_path: str, runtime_dir: Path | None) -> None:
+    """Drop task-local runtime remnants when a reused status path starts a new run."""
+    if runtime_dir is None:
+        return
+    run_id = str(status.get("run_id", "")).strip()
+    if not run_id:
+        return
+    runtime_path = runtime_dir / "runtime.json"
+    try:
+        previous = json.loads(runtime_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        previous = {}
+    if not previous or previous.get("active_run_id") == run_id:
+        return
+    mailbox_path = _requests_path(status_path)
+    try:
+        mailbox_path.unlink()
+    except FileNotFoundError:
+        pass
+
+
 def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -146,6 +174,8 @@ def main(argv: list[str] | None = None) -> int:
         runtime_dir = task_runtime_dir if args.watch and not args.storage_dir else None
         if args.watch:
             lock_path = _acquire_watch_lock(task_runtime_dir)
+            initial_status = _read_status(args.status_json)
+            _prepare_watch_run(initial_status, args.status_json, runtime_dir)
         if args.backend == "file-mock":
             backend = FileMockBackend(runtime_dir or storage_dir)
         elif args.backend == "null":

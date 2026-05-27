@@ -6,6 +6,7 @@
 
 ```json
 {
+  "run_id": "<fresh task run id>",
   "state": "running",
   "task": "<top-level task name>",
   "progress": "<active subtask or current activity>",
@@ -32,6 +33,9 @@ meaningful; omit it for short or single-step work.
 | `waiting_user` | Blocked, needs input | `task`, `progress` |
 | `done` | Completed successfully | `result`, `notification_id` |
 | `error` | Failed | `result`, `notification_id` |
+
+`run_id` is required for an active CLI-watch task and remains unchanged through that
+task. Generate it once for a new task; do not reuse an old task's value or status path.
 
 Use `waiting_user` only when execution of the original main task is blocked by a
 concrete missing decision or information. Do not use it because the bridge is open,

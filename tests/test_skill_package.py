@@ -39,6 +39,8 @@ class SkillPackageTests(unittest.TestCase):
         self.assertIn("本次任务启用菠萝控制", skill)
         self.assertIn("## Active Control Card", skill)
         self.assertIn("requests.jsonl", skill)
+        self.assertIn("Read each request's `content` field yourself", skill)
+        self.assertIn("never let a shell template reply for you", skill)
         self.assertIn("[commands/init.md]", skill)
         self.assertFalse((SKILL / "commands" / "run.md").exists())
         self.assertIn("discover --json", install)
@@ -49,6 +51,8 @@ class SkillPackageTests(unittest.TestCase):
         self.assertIn("--backend web --watch", runtime)
         self.assertIn("requests.jsonl", runtime)
         self.assertIn("ack-<request-id>", runtime)
+        self.assertIn('"run_id": "<run-id>"', runtime)
+        self.assertIn("five loop iterations inside a shell script", runtime)
         self.assertIn("菠萝控制已连接。", runtime)
         self.assertIn("settle delivery", runtime)
         self.assertIn("one `--watch` helper", startup)
@@ -58,6 +62,10 @@ class SkillPackageTests(unittest.TestCase):
         self.assertIn("--permission-mode bypassPermissions", install)
         self.assertIn("requests.jsonl", interrupt)
         self.assertIn("ack-<request-id>", interrupt)
+        self.assertIn("A question requires the answer", interrupt)
+        self.assertIn("The request text field is exactly `content`", interrupt)
+        self.assertIn("Do not use `text`", runtime)
+        self.assertNotIn('"text":"已记入，我会按你的要求继续处理。"', runtime + interrupt)
         status_rule = (SKILL / "rules" / "status-format.md").read_text(encoding="utf-8")
         self.assertIn("Do not use it because the bridge is open", status_rule)
 
@@ -129,7 +137,7 @@ class SkillPackageTests(unittest.TestCase):
             )
             payload = json.loads(result.stdout)
             self.assertEqual(payload["status"], "upgrade_needed")
-            self.assertEqual(payload["latest_tool_version"], "0.3.2")
+            self.assertEqual(payload["latest_tool_version"], "0.3.4")
 
     def test_plan_is_explicit_about_user_level_writes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -193,7 +201,7 @@ class SkillPackageTests(unittest.TestCase):
             expected_python.parent.mkdir(parents=True)
             expected_python.write_text("", encoding="utf-8")
             (target / "pineapple-install.json").write_text(
-                '{"tool_version":"0.3.2"}', encoding="utf-8"
+                '{"tool_version":"0.3.4"}', encoding="utf-8"
             )
             env = dict(os.environ)
             env["PINEAPPLE_TOOL_HOME"] = str(target)

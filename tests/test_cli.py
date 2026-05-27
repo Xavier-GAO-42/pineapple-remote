@@ -11,7 +11,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from wechat_agent.cli import _acquire_watch_lock, _append_requests, _runtime_dir_for_status
+from wechat_agent.cli import (
+    _acquire_watch_lock,
+    _append_requests,
+    _requests_path,
+    _runtime_dir_for_status,
+)
 
 
 class CliTests(unittest.TestCase):
@@ -111,6 +116,18 @@ class CliTests(unittest.TestCase):
             self.assertEqual(first, Path(temporary) / ".first.pineapple-runtime")
             self.assertEqual(second, Path(temporary) / ".second.pineapple-runtime")
             self.assertNotEqual(first, second)
+
+    def test_named_status_path_has_isolated_request_mailbox(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            self.assertEqual(
+                _requests_path(str(folder / "status.json")),
+                folder / "requests.jsonl",
+            )
+            self.assertEqual(
+                _requests_path(str(folder / "status-wp6.json")),
+                folder / "status-wp6.requests.jsonl",
+            )
 
     def test_duplicate_watch_helper_is_rejected_for_same_status(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

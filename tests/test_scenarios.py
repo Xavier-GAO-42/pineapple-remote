@@ -39,6 +39,17 @@ class RejectingClosingBackend(ClosingMockBackend):
         return False
 
 
+class InitiallyRejectingBackend(MockBackend):
+    def __init__(self) -> None:
+        super().__init__()
+        self.reject = True
+
+    def send_message(self, text: str) -> bool:
+        if self.reject:
+            return False
+        return super().send_message(text)
+
+
 class BridgeScenarioTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -100,6 +111,7 @@ class BridgeScenarioTests(unittest.TestCase):
 
     def test_connected_notice_is_an_outbox_message_sent_once(self) -> None:
         status = {
+            "run_id": "run-001",
             "state": "running",
             "task": "当前主任务",
             "progress": "菠萝控制已连接，正在开始执行任务",
@@ -114,6 +126,47 @@ class BridgeScenarioTests(unittest.TestCase):
         self.bridge.tick(status)
         self.bridge.tick(status)
         self.assertEqual(self.backend.sent, ["🍍[AI回复]🤖👌菠萝控制已连接。"])
+
+    def test_unsent_outbox_survives_status_overwrite_until_transport_is_ready(self) -> None:
+        backend = InitiallyRejectingBackend()
+        bridge = WechatBridge(backend, self.home)
+        bridge.tick(
+            {
+                "run_id": "run-pending",
+                "state": "running",
+                "task": "启动任务",
+                "outbox": [
+                    {"id": "run-pending-connected", "type": "received", "text": "菠萝控制已连接。"}
+                ],
+            }
+        )
+        backend.reject = False
+        bridge.tick(
+            {
+                "run_id": "run-pending",
+                "state": "running",
+                "task": "启动任务",
+                "progress": "已经进入工作阶段",
+            }
+        )
+        self.assertEqual(backend.sent, ["🍍[AI回复]🤖👌菠萝控制已连接。"])
+
+    def test_new_run_id_resets_outbox_dedup_for_reused_status_path(self) -> None:
+        for run_id in ("first-run", "second-run"):
+            self.bridge.tick(
+                {
+                    "run_id": run_id,
+                    "state": "running",
+                    "task": "重用路径测试",
+                    "outbox": [
+                        {"id": "connected", "type": "received", "text": "菠萝控制已连接。"}
+                    ],
+                }
+            )
+        self.assertEqual(
+            self.backend.sent,
+            ["🍍[AI回复]🤖👌菠萝控制已连接。", "🍍[AI回复]🤖👌菠萝控制已连接。"],
+        )
 
     def test_06_done_sends_completion(self) -> None:
         self.bridge.tick({"state": "done", "task": "测试", "result": "测试完成"})
@@ -189,6 +242,35 @@ class BridgeScenarioTests(unittest.TestCase):
         bridge.tick(status)
         self.assertFalse(backend.closed)
         self.assertFalse(bridge.terminal_notification_sent(status))
+
+    def test_terminal_waits_until_received_request_has_ai_ack(self) -> None:
+        self.backend.receive("🍍：请先确认", "pending-terminal")
+        self.bridge.tick({"run_id": "pending-terminal-run", "state": "running"})
+        terminal = {
+            "run_id": "pending-terminal-run",
+            "state": "done",
+            "task": "测试",
+            "result": "测试完成",
+            "notification_id": "pending-terminal-done",
+            "outbox": [
+                {
+                    "id": "ack-pending-terminal",
+                    "type": "received",
+                    "text": "已记入，我会按你的要求继续处理。",
+                }
+            ],
+        }
+        self.bridge.tick(terminal)
+        self.assertNotIn("🍍[自动回复]💻👌完成：测试完成", self.backend.sent)
+        self.bridge.tick(terminal)
+        self.assertEqual(
+            self.backend.sent,
+            [
+                "🍍[自动回复]💻👌已接收请求，AI正在处理中。",
+                "🍍[AI回复]🤖👌已记入，我会按你的要求继续处理。",
+                "🍍[自动回复]💻👌完成：测试完成",
+            ],
+        )
 
     def test_07_done_notification_is_deduplicated(self) -> None:
         status = {"state": "done", "task": "测试", "result": "测试完成"}

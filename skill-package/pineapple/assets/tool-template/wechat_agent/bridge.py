@@ -80,20 +80,43 @@ class WechatBridge:
         runtime = self.store.load_json(
             self.store.runtime_path,
             {
+                "active_run_id": None,
                 "handled_messages": [],
+                "received_requests": [],
                 "sent_completions": [],
                 "completion_submitted_at": {},
                 "sent_outbox": [],
+                "pending_outbox": [],
                 "last_check_at": 0.0,
                 "transport_initialized": False,
                 "transport_session_id": None,
                 "last_backend_error": None,
             },
         )
+        run_id = str(status_dict.get("run_id", "")).strip() or None
+        if run_id and runtime.get("active_run_id") != run_id:
+            runtime = {
+                "active_run_id": run_id,
+                "handled_messages": [],
+                "received_requests": [],
+                "sent_completions": [],
+                "completion_submitted_at": {},
+                "sent_outbox": [],
+                "pending_outbox": [],
+                "last_check_at": 0.0,
+                "transport_initialized": False,
+                "transport_session_id": None,
+                "last_backend_error": None,
+            }
+        runtime.setdefault("active_run_id", run_id)
+        if run_id:
+            runtime["active_run_id"] = run_id
         runtime.setdefault("handled_messages", [])
+        runtime.setdefault("received_requests", [])
         runtime.setdefault("sent_completions", [])
         runtime.setdefault("completion_submitted_at", {})
         runtime.setdefault("sent_outbox", [])
+        runtime.setdefault("pending_outbox", [])
         runtime.setdefault("last_check_at", 0.0)
         runtime.setdefault("transport_initialized", False)
         runtime.setdefault("transport_session_id", None)
@@ -143,6 +166,7 @@ class WechatBridge:
                         message.id, message.text.strip(), config, status_dict
                     )
                     if event:
+                        _remember(runtime["received_requests"], event["id"])
                         events.append(event)
             except BackendUnavailable as exc:
                 error = str(exc)
@@ -210,6 +234,8 @@ class WechatBridge:
         completion = self._completion(status)
         if completion is None:
             return
+        if self._pending_request_acks(runtime):
+            return
         key, result = completion
         if key in runtime["sent_completions"]:
             runtime["completion_submitted_at"].setdefault(key, self.clock())
@@ -257,6 +283,15 @@ class WechatBridge:
         return completion is not None and completion[0] in runtime["sent_completions"]
 
     @staticmethod
+    def _pending_request_acks(runtime: Mapping[str, Any]) -> list[str]:
+        sent = set(runtime.get("sent_outbox", []))
+        return [
+            str(request_id)
+            for request_id in runtime.get("received_requests", [])
+            if f"ack-{request_id}" not in sent
+        ]
+
+    @staticmethod
     def _completion(status: Mapping[str, Any]) -> tuple[str, str] | None:
         state = status.get("state")
         if state not in ("done", "error"):
@@ -279,22 +314,42 @@ class WechatBridge:
         runtime: dict[str, Any],
     ) -> None:
         outbox = status.get("outbox", [])
-        if not isinstance(outbox, list):
-            return
-        for message in outbox:
+        if isinstance(outbox, list):
+            pending_ids = {
+                str(message.get("id"))
+                for message in runtime["pending_outbox"]
+                if isinstance(message, Mapping) and message.get("id")
+            }
+            for message in outbox:
+                if not isinstance(message, Mapping) or not str(message.get("text", "")).strip():
+                    continue
+                kind = str(message.get("type", "received"))
+                text = str(message["text"]).strip()
+                key = str(
+                    message.get("id")
+                    or _fingerprint([status.get("task", ""), kind, text])
+                )
+                if key not in runtime["sent_outbox"] and key not in pending_ids:
+                    runtime["pending_outbox"].append(
+                        {"id": key, "type": kind, "text": text}
+                    )
+                    pending_ids.add(key)
+        pending = list(runtime["pending_outbox"])
+        remaining: list[dict[str, str]] = []
+        for message in pending:
             if not isinstance(message, Mapping) or not str(message.get("text", "")).strip():
                 continue
             kind = str(message.get("type", "received"))
             text = str(message["text"]).strip()
-            key = str(
-                message.get("id")
-                or _fingerprint([status.get("task", ""), kind, text])
-            )
+            key = str(message["id"])
             if key in runtime["sent_outbox"]:
                 continue
             text = f"{config.done_prefix}{text}" if kind == "done" else text
             if self._safe_send(_agent_reply(config, text), "outbox"):
                 _remember(runtime["sent_outbox"], key)
+            else:
+                remaining.append(dict(message))
+        runtime["pending_outbox"] = remaining
 
 
 def format_status(status: Mapping[str, Any]) -> str:

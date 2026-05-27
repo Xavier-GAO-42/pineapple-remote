@@ -9,10 +9,14 @@ description: Use Pineapple/菠萝 as a lightweight local WeChat 文件传输助�
 
 When Pineapple controls an active task, these four obligations override convenience:
 
-1. Check the task's `requests.jsonl` at every checkpoint. Every unread request must be applied or declined and receive exactly one `🍍[AI回复]🤖👌...` acknowledgment.
-2. Keep updating the same `status.json`; never launch a second tick or use another status file.
+1. Check `requests.jsonl` at every checkpoint. Read each request's `content` field yourself and send one useful `🍍[AI回复]🤖👌...` answer, applied-change summary, or refusal; never let a shell template reply for you.
+2. Start with a fresh `run_id` and its own `status.json`; keep updating that file only.
 3. Before answering the host user at task end, write `done` or `error` with `result` and a stable `notification_id`.
 4. Wait for the watch helper to send its terminal notification, settle delivery, and exit.
+
+For long or repeated work, the agent owns the loop: perform one substantive operation,
+return to a Pineapple checkpoint, then continue. Never delegate many iterations to one
+blocking shell script, because it cannot apply WeChat steering or recover a lost helper.
 
 把微信文件传输助手变成 AI agent 的随身遥控器。
 
@@ -30,16 +34,18 @@ When Pineapple controls an active task, these four obligations override convenie
 ## Fixed Lifecycle
 
 - [ ] Identify install-only versus active control; load only the listed document.
-- [ ] For active control, create one run id, one UTF-8 `status.json`, and one `--watch` helper.
+- [ ] For active control, create a fresh run id, its own run directory and UTF-8 `status.json`, and one `--watch` helper.
 - [ ] If helper startup reports one is already active for that status file, reuse it; never start a replacement helper.
+- [ ] Run startup health check: if `.<status-stem>.pineapple-runtime/watch.lock` is missing within 5 seconds, treat startup as failed.
 - [ ] After login is usable, send once: `🍍[AI回复]🤖👌菠萝控制已连接。`
-- [ ] Execute the original task; at each checkpoint check `requests.jsonl`, reply to unread requests, then update status.
+- [ ] Execute the original task; at each checkpoint check `requests.jsonl`, meaningfully answer or apply unread requests, then update status.
+- [ ] After every long wait/tool operation: verify the helper is still active, read requests, send required AI replies, then start the next operation.
 - [ ] At task end write `done` or `error`, then wait for the helper to exit before replying in the host chat.
 
 ## Protocol
 
 - `🍍?` / `🍍？` -> `🍍[自动回复]💻👌状态：<status>`; no request event.
-- `🍍:内容` / `🍍：内容` -> `🍍[自动回复]💻👌已接收请求，AI正在处理中。`, then a durable request event that requires an AI acknowledgment.
+- `🍍:内容` / `🍍：内容` -> `🍍[自动回复]💻👌已接收请求，AI正在处理中。`, then a durable request event that requires one useful AI reply.
 - Agent outbox -> `🍍[AI回复]🤖👌<text>`.
 - Task end -> `🍍[自动回复]💻👌完成：<summary>`, then delivery settle and helper exit.
 - The configurable `emoji` replaces `🍍`; default control-channel language is Chinese unless the user explicitly requests English.
