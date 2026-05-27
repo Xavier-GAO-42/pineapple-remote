@@ -5,29 +5,23 @@
 ## Mechanism
 
 When a user sends `🍍：xxx`, the bridge:
-1. Sends `[自动回复]🤖👌🍍:已接收请求，AI正在处理中。` to WeChat automatically
-2. Writes `interrupt.flag` in the storage directory
-3. Emits `{"type":"request","content":"xxx"}` on stdout (watch mode)
+1. Sends `🍍[自动回复]💻👌已接收请求，AI正在处理中。` automatically.
+2. Appends `{"id":"...","type":"request","content":"xxx","source":"wechat"}` to the task's `requests.jsonl` in CLI watch mode.
+3. Emits the same event on stdout for compatibility.
+4. May write `interrupt.flag` as a legacy marker; do not use it as the content source.
 
 ## Agent Obligation
 
-For every request event, send one concise manual acknowledgment through `outbox`
-before continuing the changed work. This is required even when the instruction is
-simple:
+At each runtime checkpoint, read `requests.jsonl` and ask:
+
+1. “Which request ids do not yet have an `ack-<request-id>` outbox item?”
+2. “How does each unread request change the original task?”
+
+For every unread request, apply or decline it, update progress, and send exactly one
+acknowledgment before continuing affected work:
 
 ```json
-{"id":"<run-id>-request-<n>","type":"received","text":"已记入，我会按你的要求继续处理。"}
-```
-
-Check the flag before beginning the next tool operation while control is active:
-
-```python
-from wechat_agent.storage import JsonStore
-
-flag = JsonStore().interrupt_flag_path
-if flag.exists():
-    # Finish the current atomic operation, then apply this steering to the main task.
-    flag.unlink(missing_ok=True)
+{"id":"ack-<request-id>","type":"received","text":"已记入，我会按你的要求继续处理。"}
 ```
 
 Treat a request event as steering for the active original task, not automatically as
@@ -38,6 +32,5 @@ approval and safety rules; the required outbox reply should explain that result.
 
 ## Fallback (Evidence Rule)
 
-If the flag does not exist: no interrupt is pending. Do not poll stdout on every call.
-
-If storage is inaccessible: treat as no interrupt; continue the main task.
+If `requests.jsonl` is absent, no persisted request is pending. If storage cannot be
+read, record that control input is unavailable and continue the main task safely.

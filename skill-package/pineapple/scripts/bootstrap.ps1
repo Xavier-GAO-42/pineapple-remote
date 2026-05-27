@@ -8,7 +8,7 @@ $scriptPath = Join-Path $PSScriptRoot "bootstrap.py"
 $templatePath = Join-Path (Split-Path $PSScriptRoot -Parent) "assets\tool-template"
 $defaultToolHome = Join-Path $env:USERPROFILE ".pineapple\bridge-tool"
 $toolHome = if ($env:PINEAPPLE_TOOL_HOME) { $env:PINEAPPLE_TOOL_HOME } else { $defaultToolHome }
-$toolVersion = "0.3.1"
+$toolVersion = "0.3.2"
 $command = if ($BootstrapArgs.Count -gt 0) { $BootstrapArgs[0] } else { "" }
 
 function Test-PineappleToolSource([string] $Path) {

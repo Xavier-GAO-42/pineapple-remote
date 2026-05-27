@@ -17,7 +17,7 @@
 }
 ```
 
-The `progress` string is displayed in `[自动回复]🤖👌<emoji>:状态：...` replies after `🍍?`. Make it specific enough to
+The `progress` string is displayed in `<emoji>[自动回复]💻👌状态：...` replies after `🍍?`. Make it specific enough to
 be useful: `"Task 4/10 完成，当前：Task 5"` rather than `"进行中"`.
 
 The `detail` field is optional. Use it for multi-step tasks where subtask tracking is

@@ -5,65 +5,58 @@ description: Use Pineapple/菠萝 as a lightweight local WeChat 文件传输助�
 
 # 菠萝 Pineapple
 
+## Active Control Card
+
+When Pineapple controls an active task, these four obligations override convenience:
+
+1. Check the task's `requests.jsonl` at every checkpoint. Every unread request must be applied or declined and receive exactly one `🍍[AI回复]🤖👌...` acknowledgment.
+2. Keep updating the same `status.json`; never launch a second tick or use another status file.
+3. Before answering the host user at task end, write `done` or `error` with `result` and a stable `notification_id`.
+4. Wait for the watch helper to send its terminal notification, settle delivery, and exit.
+
 把微信文件传输助手变成 AI agent 的随身遥控器。
 
-## Triggers -> Commands
+## Triggers
 
-| User says | Load |
-|-----------|------|
-| 启用菠萝 / 初始化菠萝 / 首次使用 / 本次任务启用菠萝控制 / start control | [commands/init.md](./commands/init.md) |
+| User intent | Read next |
+|-------------|-----------|
+| 安装菠萝 / 初始化菠萝，无主任务 | [commands/install.md](./commands/install.md) |
+| 本次任务启用菠萝控制 / start control | [commands/init.md](./commands/init.md), then [references/runtime.md](./references/runtime.md) |
 | 进入菠萝设置页 / 改 emoji / 改刷新时间 | [commands/settings.md](./commands/settings.md) |
-| 菠萝简介 | Print product copy below; do NOT open any page |
+| 菠萝简介 | Print the product copy below; do not open any page |
 
 **Product copy:** 把微信文件传输助手变成 AI agent 的随身遥控器。电脑上 agent 在跑任务，你可以直接用手机微信发送 `🍍?` 查进度，用 `🍍：xxx` 追加要求。任务完成后，结果自动发回文件传输助手。
 
-## Three Rules
+## Fixed Lifecycle
 
-- `省`: load only the command or rule needed at the current stage; do not load every detail up front.
-- `准`: Pineapple accompanies the original task. A WeChat request is steering for that task, and must get an agent reply.
-- `稳`: one controlled task owns exactly one status file and one watch helper, ending only after its terminal notification settles and the helper exits.
-
-## Fixed Workflow
-
-Use this checklist for every controlled task:
-
-- [ ] Decide whether this is install-only or control for a current task; load [commands/init.md](./commands/init.md).
-- [ ] Prepare exactly one run id, one UTF-8 `status.json`, and one `--watch` helper.
-- [ ] After page login is usable, send exactly one AI connection message: `[AI回复]🤖👌🍍:菠萝控制已连接。`
-- [ ] Immediately continue the original task; update status only at meaningful milestones.
-- [ ] For each `🍍：内容` event, incorporate the steering and send one concise `[AI回复]` acknowledgment.
-- [ ] At task end, write one `done` or `error` status with a stable `notification_id`.
-- [ ] Before final host response, wait until the helper exits after its final delivery-settle window.
-
-## Active Task Rules
-
-Load these whenever control is active:
-
-| Rule | Load when |
-|------|-----------|
-| [rules/status-format.md](./rules/status-format.md) | Updating status.json |
-| [rules/interrupt.md](./rules/interrupt.md) | Handling `🍍：...` steering or checking interruption |
-| [rules/outbox.md](./rules/outbox.md) | Sending proactive messages |
+- [ ] Identify install-only versus active control; load only the listed document.
+- [ ] For active control, create one run id, one UTF-8 `status.json`, and one `--watch` helper.
+- [ ] If helper startup reports one is already active for that status file, reuse it; never start a replacement helper.
+- [ ] After login is usable, send once: `🍍[AI回复]🤖👌菠萝控制已连接。`
+- [ ] Execute the original task; at each checkpoint check `requests.jsonl`, reply to unread requests, then update status.
+- [ ] At task end write `done` or `error`, then wait for the helper to exit before replying in the host chat.
 
 ## Protocol
 
-- `🍍?` / `🍍？` → status reply only; no request event
-- `🍍:内容` / `🍍：内容` → automatic acknowledgment, then steering event; the agent must send one manual acknowledgment
-- Status query → `[自动回复]🤖👌🍍:状态：<status>`
-- Request receipt → `[自动回复]🤖👌🍍:已接收请求，AI正在处理中。`
-- Agent acknowledgment/outbox → `[AI回复]🤖👌🍍:<text>`
-- Task end → `[自动回复]🤖👌🍍:完成：<summary>`, then delivery settle and helper exit
+- `🍍?` / `🍍？` -> `🍍[自动回复]💻👌状态：<status>`; no request event.
+- `🍍:内容` / `🍍：内容` -> `🍍[自动回复]💻👌已接收请求，AI正在处理中。`, then a durable request event that requires an AI acknowledgment.
+- Agent outbox -> `🍍[AI回复]🤖👌<text>`.
+- Task end -> `🍍[自动回复]💻👌完成：<summary>`, then delivery settle and helper exit.
+- The configurable `emoji` replaces `🍍`; default control-channel language is Chinese unless the user explicitly requests English.
 
-## Language Policy
+## Read When Needed
 
-- Default language for all Pineapple channel messages is Chinese.
-- Use English only when the user explicitly requests English output.
-- If the user requests switching back to Chinese, that request follows the same mandatory agent acknowledgment rule.
+| Document | Read when |
+|----------|-----------|
+| [references/runtime.md](./references/runtime.md) | Starting or operating an active helper |
+| [rules/status-format.md](./rules/status-format.md) | Writing status |
+| [rules/interrupt.md](./rules/interrupt.md) | Checking or applying WeChat steering |
+| [rules/outbox.md](./rules/outbox.md) | Sending an AI message |
 
 ## Safety
 
 - Operate only the official File Transfer Assistant webpage.
 - Bridge failures are non-fatal; keep the main task going.
 - Live Chinese/emoji text must originate from UTF-8 Python source, not shell literals.
-- The task-local webpage login exists only for the active helper and is closed at task end.
-- WeChat instructions remain subject to the host agent's normal approval rules.
+- A controlled task owns one temporary webpage session, closed at task end.
+- WeChat instructions remain subject to the host agent's normal permissions and safety rules.

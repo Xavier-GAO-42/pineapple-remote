@@ -56,6 +56,14 @@ def main() -> int:
             for event in events:
                 if event["type"] == "request":
                     print(f"收到 steering event：{event['content']}", flush=True)
+                    running_status["progress"] = "已读取微信干预，正在按新要求继续处理"
+                    running_status.setdefault("outbox", []).append(
+                        {
+                            "id": f"ack-{event['id']}",
+                            "type": "received",
+                            "text": "已记入，我会按你的要求继续处理。",
+                        }
+                    )
             time.sleep(interval)
 
         done_status = {

@@ -23,13 +23,21 @@ def default_storage_dir() -> Path:
 
 
 class JsonStore:
-    def __init__(self, directory: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        directory: str | Path | None = None,
+        runtime_directory: str | Path | None = None,
+    ) -> None:
         self.directory = Path(directory) if directory else default_storage_dir()
         self.directory.mkdir(parents=True, exist_ok=True)
+        self.runtime_directory = (
+            Path(runtime_directory) if runtime_directory else self.directory
+        )
+        self.runtime_directory.mkdir(parents=True, exist_ok=True)
         self.config_path = self.directory / "config.json"
-        self.runtime_path = self.directory / "runtime.json"
-        self.log_path = self.directory / "bridge.jsonl"
-        self.interrupt_flag_path = self.directory / "interrupt.flag"
+        self.runtime_path = self.runtime_directory / "runtime.json"
+        self.log_path = self.runtime_directory / "bridge.jsonl"
+        self.interrupt_flag_path = self.runtime_directory / "interrupt.flag"
 
     def load_json(self, path: Path, default: dict[str, Any]) -> dict[str, Any]:
         try:

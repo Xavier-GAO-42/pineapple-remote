@@ -29,7 +29,7 @@ class BridgeConfig:
     emoji: str = "🍍"
     query_suffix: str = "？"
     request_suffix: str = "："
-    automatic_reply_prefix: str = "[自动回复]🤖👌"
+    automatic_reply_prefix: str = "[自动回复]💻👌"
     agent_reply_prefix: str = "[AI回复]🤖👌"
     done_prefix: str = "完成："
     auto_ack_text: str = "已接收请求，AI正在处理中。"

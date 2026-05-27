@@ -1,86 +1,70 @@
-# Pineapple Runtime
+# Pineapple Active Runtime
 
-## Installed Tool Location
+Load this only while a current user task has Pineapple control enabled.
 
-Bootstrap returns JSON containing `tool_home` and `python`. The default installation is:
+## One Task, One Helper
+
+Allocate:
 
 ```text
-~/.pineapple/bridge-tool
-~/.pineapple/bridge-tool/.venv/Scripts/python.exe
+~/.pineapple/sessions/<run-id>/status.json
+~/.pineapple/sessions/<run-id>/requests.jsonl
 ```
 
-Use the reported Python path, not an assumed global environment.
+The CLI automatically keeps transport runtime/profile files in a private sidecar
+directory for this status file. It also rejects a second `--watch` helper for the
+same `status.json`; do not retry by launching another helper.
 
-## Permission Footprint
-
-Initialization is intentionally small and explicit:
-
-- Read-only: search for a compatible local tool source and print an installation plan.
-- After user approval only: write `~/.pineapple/bridge-tool`, standard local package
-  metadata (`*.egg-info`), create its `.venv`, and install the tool plus the Playwright
-  Python package into that venv.
-- When adopting an existing tool, use the bundled packaging metadata; adopted Python
-  source is still executable code when the user later enables the bridge.
-- Runtime only while enabled: open a fresh official File Transfer Assistant browser page,
-  keep its temporary browser session for this task, and write local state/log files.
-- Never: background daemon, server, screenshots, OCR, clipboard reads, desktop-WeChat
-  inspection, or non-official WeChat protocol access.
-
-The temporary browser session is sensitive while the task is active and is closed when
-the helper exits. Each new controlled task asks for a new QR login. Anyone able to
-command the same WeChat File Transfer Assistant account during that active task can
-send bridge instructions; the host agent must continue enforcing its normal approval rules.
-
-## Codex And Claude Code Task Companion Loop
-
-These hosts cannot import a Python module into their own conversation loop. Maintain one
-foreground helper owned by the active task:
-
-1. Preserve the user's original main task; Pineapple is only its control channel.
-2. Allocate one run id and one UTF-8 status JSON file in
-   `~/.pineapple/sessions/<run-id>/status.json`.
-   The first running status includes one stable outbox item with text
-   `菠萝控制已连接。`.
-3. Start:
+Start exactly one helper using the Python path returned by bootstrap:
 
 ```powershell
-<tool-python> -m wechat_agent.wechat_tick --backend web --watch --status-json <status-json>
+<tool-python> -m wechat_agent.wechat_tick --backend web --watch --status-json "<status-json>"
 ```
 
-4. Keep the command running only while this task is executing. Scan the new visible
-   official webpage for this task and keep it open until completion.
-5. Immediately resume the original task after starting control; never wait for an
-   optional WeChat instruction.
-6. Update only that one status JSON object at meaningful milestones while work proceeds.
-   Do not launch a second tick or alternate status file while this helper owns the task.
-7. Consume JSON events printed by the helper; treat `{"type":"request"}` as steering
-   for the active original task unless its content explicitly replaces that task.
-8. Before the host's final reply, write terminal `done` or `error` status to that same
-   file, then wait for the helper to exit. It submits the completion message, waits
-   about 3 seconds for webpage delivery to settle, closes this page session, and exits. An
-   unavailable send is retried.
+If the tool is missing or reports an upgrade, read [../commands/install.md](../commands/install.md)
+first. The helper opens one visible official page; ask the user to scan its QR code.
 
-This is the CLI adaptation of the single `wechat_tick(status)` contract; it is not a
-daemon or server.
-
-## Status Examples
+## Start Status
 
 ```json
-{"state":"running","task":"检查项目","progress":"菠萝控制已连接，正在运行测试","outbox":[{"id":"check-project-connected","type":"received","text":"菠萝控制已连接。"}]}
+{
+  "state": "running",
+  "task": "<当前主任务摘要>",
+  "progress": "菠萝控制已连接，正在开始执行任务",
+  "outbox": [
+    {"id": "<run-id>-connected", "type": "received", "text": "菠萝控制已连接。"}
+  ]
+}
 ```
+
+After connection, continue the original task immediately. Pineapple is its control
+channel, not a service waiting for a separate WeChat task.
+
+## Checkpoints
+
+At connection start, before a substantial tool operation, after a long operation, and
+before terminal status:
+
+1. Read `requests.jsonl` if it exists.
+2. Ask: “Which request ids do not yet have an `ack-<request-id>` outbox item?”
+3. For every unread request, apply or decline it within the original task, update
+   progress, and append one stable acknowledgment:
 
 ```json
-{"state":"waiting_user","task":"检查项目","progress":"需要用户确认下一步"}
+{"id":"ack-<request-id>","type":"received","text":"已记入，我会按你的要求继续处理。"}
 ```
 
-```json
-{"state":"done","task":"检查项目","result":"测试通过","notification_id":"task-unique-id"}
-```
+The mailbox is append-only during this task. Do not delete it or rely on helper stdout
+as the durable source of instructions.
 
-Use `waiting_user` only if the main task cannot proceed until a concrete user answer
-arrives. It does not mean waiting for QR login or waiting for optional WeChat control.
+## End Gate
 
-## Settings
+Before giving the final host-chat response:
 
-Use `python -m wechat_agent.control info` for product copy and `settings` or
-`configure` for local configuration. These commands do not open WeChat or send messages.
+- Confirm every recorded request id has an AI acknowledgment.
+- Write `done` or `error` to the same `status.json` with concise `result` and stable `notification_id`.
+- Wait for the helper to submit `🍍[自动回复]💻👌完成：...`, settle delivery for about 3 seconds, and exit.
+
+For long-running repeated work, remain `running` and update `progress` at meaningful
+checkpoints. Enter terminal state only when the full user task completes, fails, or
+the user explicitly stops it.

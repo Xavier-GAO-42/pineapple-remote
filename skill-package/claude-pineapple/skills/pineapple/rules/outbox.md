@@ -21,7 +21,7 @@ Add an `outbox` array to `status.json` before the next tick:
 ## Rules
 
 - `id` is **stable and unique** across ticks — same id = already sent, skip
-- Any agent outbox item → prefix `[AI回复]🤖👌<emoji>:`
+- Any agent outbox item → prefix `<emoji>[AI回复]🤖👌`
 - `type: "done"` additionally prefixes its text with `完成：`; normal completion should use terminal state
 - Keep text brief; this is a control channel, not a chat
 - Default outbox text language is Chinese unless the user explicitly requests English.

@@ -43,11 +43,11 @@ def _sentence(text: str) -> str:
 
 
 def _automatic_reply(config: BridgeConfig, text: str) -> str:
-    return f"{config.automatic_reply_prefix}{config.emoji}:{text}"
+    return f"{config.emoji}{config.automatic_reply_prefix}{text}"
 
 
 def _agent_reply(config: BridgeConfig, text: str) -> str:
-    return f"{config.agent_reply_prefix}{config.emoji}:{text}"
+    return f"{config.emoji}{config.agent_reply_prefix}{text}"
 
 
 class WechatBridge:
@@ -57,10 +57,11 @@ class WechatBridge:
         self,
         backend: Backend | None = None,
         storage_dir: str | Path | None = None,
+        runtime_dir: str | Path | None = None,
         clock: Any = time.time,
     ) -> None:
-        self.store = JsonStore(storage_dir)
-        self.backend = backend or WebFileHelperBackend(self.store.directory)
+        self.store = JsonStore(storage_dir, runtime_directory=runtime_dir)
+        self.backend = backend or WebFileHelperBackend(self.store.runtime_directory)
         self.clock = clock
 
     def tick(
@@ -138,7 +139,9 @@ class WechatBridge:
                     if message.id in runtime["handled_messages"]:
                         continue
                     _remember(runtime["handled_messages"], message.id)
-                    event = self._handle_incoming(message.text.strip(), config, status_dict)
+                    event = self._handle_incoming(
+                        message.id, message.text.strip(), config, status_dict
+                    )
                     if event:
                         events.append(event)
             except BackendUnavailable as exc:
@@ -172,7 +175,11 @@ class WechatBridge:
         return False
 
     def _handle_incoming(
-        self, text: str, config: BridgeConfig, status: Mapping[str, Any]
+        self,
+        message_id: str,
+        text: str,
+        config: BridgeConfig,
+        status: Mapping[str, Any],
     ) -> dict[str, str] | None:
         if text in config.query_commands():
             reply = _automatic_reply(config, f"状态：{format_status(status)}")
@@ -187,6 +194,7 @@ class WechatBridge:
                 except OSError:
                     pass
                 return {
+                    "id": message_id,
                     "type": "request",
                     "content": text[len(prefix) :].strip(),
                     "source": "wechat",

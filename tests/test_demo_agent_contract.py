@@ -17,6 +17,7 @@ class DemoAgentContractTests(unittest.TestCase):
         self.assertIn('"state": "running"', source)
         self.assertIn('"state": "done"', source)
         self.assertIn("菠萝控制已连接。", source)
+        self.assertIn('f"ack-{event[\'id\']}"', source)
         self.assertIn("🍍？", source)
         self.assertNotIn("等待测试请求", source)
 
